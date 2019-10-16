@@ -36,6 +36,7 @@ def text_preprocess(corpus, lemma=False, phrases=False):
             filtered_sentence = []
             #Remove puntuation
             phrase = re.sub(r'[^\w\s]','',phrase)
+            phrase = re.sub(r'[^\D]'  ,'',phrase)
             #Tokenize text
             word_tokens = nltk.word_tokenize(phrase)
         
@@ -48,6 +49,7 @@ def text_preprocess(corpus, lemma=False, phrases=False):
     else:
         #Remove puntuation
         corpus = re.sub(r'[^\w\s]','',corpus)
+        corpus = re.sub(r'[^\D]'  ,'',corpus)
         
         #Tokenize text
         word_tokens = nltk.word_tokenize(corpus)
@@ -73,12 +75,32 @@ def tf_idf(train, test):
     
     #Learn the vocabulary dictionary and return term-document matrix (count)
     x = vectorizer.fit_transform(candidates)
-    vectorizer_tfidf = TfidfVectorizer(use_idf = False)
+    vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word')
+    
     trainvec = vectorizer_tfidf.fit_transform(train)
     testvec  = vectorizer_tfidf.transform(test)
-    print(trainvec)
-        
+    
+    #find maximum for each of the terms over the dataset
+    max_val = testvec.max(axis=0).toarray().ravel()
+    
+    sort_tfidf = max_val.argsort()
+    print("sort", sort_tfidf)
+    
+    feature_names = vectorizer_tfidf.get_feature_names()
+    print("sort_tfidf", sort_tfidf[-5:])
+    print("fn", type(feature_names))
    
+    for i in sort_tfidf[-5:]:
+        print(feature_names[i])
+    
+    #Vocab of all docs
+    #print('vocab: ', vectorizer_tfidf.vocabulary_)
+    
+    #Retrieve the idf of every term of the vocabulary (all docs)
+    #print('tf : ', vectorizer_tfidf.idf_)
+    #print(trainvec)
+    
+    
 def get_20_news_group():
     train = fetch_20newsgroups(subset = 'train')
     test  = fetch_20newsgroups(subset = 'test' )
