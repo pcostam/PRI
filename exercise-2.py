@@ -4,6 +4,7 @@ Exercise 2
 """
 import xml.dom.minidom
 import os
+import json
 
 """
 Process XML file.
@@ -43,7 +44,22 @@ def get_dataset(t="word"):
       
     print("doc", len(sentences_doc))
     return sentences_doc
+
+"""
+Returns dictionary. Key is filename and value is list containing lists 
+with keyphrases
+"""
+def json_references():
+    path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\references"
+    filename = os.path.join(path,"train.combined.json")
+    data = dict()
+    
+    with open(filename) as f:    
+        data = json.load(f)
+    
+        for key, value in data.items():
+            print(key, value)
+    return data
         
-                
-                    
+             
        
