@@ -12,7 +12,7 @@ token (optional): must be "word" or "lemma"
 Returns:
 a list where each element corresponds to a list(document) containing strings (sentences) 
 """
-def get_dataset():
+def get_dataset(t="word"):
     path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\train"
  
     files = []
@@ -21,7 +21,8 @@ def get_dataset():
         for file in f:
             if '.xml' in file:
                 files.append(os.path.join(r, file))
-
+                
+    sentences_doc = []
     for f in files[:5]:
         print(f)
         doc = xml.dom.minidom.parse(f);
@@ -33,11 +34,15 @@ def get_dataset():
                 tokens = sentence.getElementsByTagName("token")
                 sentence_string = ""
                 for token in tokens:
-                    word = token.getElementsByTagName("word")[0].firstChild.data
+                    word = token.getElementsByTagName(t)[0].firstChild.data
                     sentence_string = sentence_string + " " + word
                 
                 sentences_list.append(sentence_string)
+        sentences_doc.append(sentences_list)
         print(">>>>>>>>>>>>>>>>", sentences_list)
+      
+    print("doc", len(sentences_doc))
+    return sentences_doc
         
                 
                     
