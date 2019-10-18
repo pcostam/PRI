@@ -5,6 +5,7 @@ Exercise 2
 import xml.dom.minidom
 import os
 import json
+preprocess = __import__('exercise-1')
 
 """
 Process XML file.
@@ -40,7 +41,7 @@ def get_dataset(t="word"):
                 
                 sentences_list.append(sentence_string)
         sentences_doc.append(sentences_list)
-        print(">>>>>>>>>>>>>>>>", sentences_list)
+       
       
     print("doc", len(sentences_doc))
     return sentences_doc
@@ -60,6 +61,9 @@ def json_references():
         for key, value in data.items():
             print(key, value)
     return data
-        
-             
-       
+
+def main():
+    sentences_doc = get_dataset()
+    print(">>>>>", sentences_doc[0])
+    for doc in sentences_doc:
+            preprocess.sentence_preprocess(doc)

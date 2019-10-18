@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 from sklearn.feature_extraction.text import TfidfVectorizer 
 from sklearn.datasets import fetch_20newsgroups
 import numpy as np
@@ -59,13 +58,17 @@ def tf_idf(train, test):
 def text_preprocess(corpus, lemma=False, phrases=True):
     candidates =[]
     
-    #Pass to lower case
-    corpus = corpus.lower()
-
     #Phrase division
     phrases = nltk.sent_tokenize(corpus)
     
-    for phrase in phrases:    
+    candidates = sentence_preprocess(phrases)
+    
+    return candidates
+
+def sentence_preprocess(phrases):
+    candidates =[]
+    for phrase in phrases:  
+        phrase = phrase.lower()
         #Remove puntuation
         phrase = re.sub(r'[^\w\s]','',phrase)
         phrase = re.sub(r'[^\D]'  ,'',phrase)
@@ -73,7 +76,7 @@ def text_preprocess(corpus, lemma=False, phrases=True):
         candidates.append(phrase)
         
     return candidates
-   
+
 def tf_idf_scores(testvec, feature_names, chars_or_words = 'words'):
     for row in testvec.toarray():
         j = 0
