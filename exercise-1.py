@@ -13,8 +13,8 @@ def main():
     tf_idf(train, test)
     
 def get_20_news_group():
-    train = fetch_20newsgroups(subset = 'train')
-    test  = fetch_20newsgroups(subset = 'test' )
+    train = fetch_20newsgroups(subset = 'train', remove=('headers', 'footers', 'quotes')) #The F-score will be lower because it is more realistic.
+    test  = fetch_20newsgroups(subset = 'test', remove=('headers', 'footers', 'quotes') ) #The F-score will be lower because it is more realistic.
     np.random.shuffle(train.data)
     
     return train.data[:30], [test.data[0]]
@@ -26,7 +26,7 @@ def tf_idf_aux(candidates_train,doc_test):
     
     for txt in candidates_train:
         vectorizer_tfidf.fit_transform(txt)
-    testvec  = vectorizer_tfidf.transform(doc_test)
+    testvec  = vectorizer_tfidf.transform(doc_test)                     
     
     #find maximum for each of the terms over the dataset
     max_val = testvec.max(axis=0).toarray().ravel()
