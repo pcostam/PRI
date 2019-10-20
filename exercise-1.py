@@ -22,7 +22,7 @@ def get_20_news_group():
 def tf_idf_aux(candidates_train,doc_test): 
     #Learn the vocabulary dictionary and return term-document matrix
     vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word', 
-                                       ngram_range=(1, 3), stop_words = 'english')
+                                       ngram_range=(1, 3), stop_words = 'english', min_df=3, max_df=0.9) #Removing very rare words (3) and Removing very frequent words (90%)
     
     for txt in candidates_train:
         vectorizer_tfidf.fit_transform(txt)
