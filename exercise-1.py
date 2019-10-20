@@ -4,6 +4,7 @@ from sklearn.datasets import fetch_20newsgroups
 import numpy as np
 import nltk 
 import re
+from scipy import sparse
 
 stop_words = set(nltk.corpus.stopwords.words("english"))
 
@@ -17,7 +18,38 @@ def get_20_news_group():
     np.random.shuffle(train.data)
     
     return train.data[:30], [test.data[0]]
-                    
+
+def tf_idf_aux(candidates_train,doc_test): 
+    #Learn the vocabulary dictionary and return term-document matrix
+    vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word', 
+                                       ngram_range=(1, 3), stop_words = 'english')
+    
+    for txt in candidates_train:
+        vectorizer_tfidf.fit_transform(txt)
+    testvec  = vectorizer_tfidf.transform(doc_test)
+    
+    #find maximum for each of the terms over the dataset
+    max_val = testvec.max(axis=0).toarray().ravel()
+    feature_names = vectorizer_tfidf.get_feature_names()
+    
+    testvec = tf_idf_scores(testvec, feature_names)
+    
+    print("test_vec", testvec.toarray())
+    sort_tfidf = max_val.argsort()
+    
+    result = list()
+    for i in sort_tfidf[-5:]:
+        result.append(feature_names[i])
+    
+    print(result)
+    return result
+    
+    #Vocab of all docs
+    #print('vocab: ', type(vectorizer_tfidf.vocabulary_))
+    
+    #Retrieve the idf of every term of the vocabulary (all docs)
+    #print('tf : ', vectorizer_tfidf.idf_)   
+           
 def tf_idf(train, test):
     candidates_train = list()
     candidates_test = list()
@@ -27,33 +59,14 @@ def tf_idf(train, test):
         candidates_train = candidates_train + [aux]
         
     for doc in test:
-        aux = text_preprocess(doc)
+        doc = text_preprocess(doc)
         candidates_test = candidates_test + [aux]
     
-    #Learn the vocabulary dictionary and return term-document matrix
-    vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word', 
-                                       ngram_range=(1, 3), stop_words = 'english')
+    for doc in candidates_test:
+        tf_idf_aux(candidates_train, doc)
     
-    for txt in candidates_train:
-        vectorizer_tfidf.fit_transform(txt)
-    testvec  = vectorizer_tfidf.transform(candidates_test[0])
     
-    #find maximum for each of the terms over the dataset
-    max_val = testvec.max(axis=0).toarray().ravel()
-    feature_names = vectorizer_tfidf.get_feature_names()
-    
-    tf_idf_scores(testvec, feature_names)
-    
-    sort_tfidf = max_val.argsort()
-    
-    for i in sort_tfidf[-5:]:
-        print(feature_names[i])
-    
-    #Vocab of all docs
-    #print('vocab: ', type(vectorizer_tfidf.vocabulary_))
-    
-    #Retrieve the idf of every term of the vocabulary (all docs)
-    #print('tf : ', vectorizer_tfidf.idf_)
+   
     
 def text_preprocess(corpus, lemma=False, phrases=True):
     candidates =[]
@@ -78,17 +91,24 @@ def sentence_preprocess(phrases):
     return candidates
 
 def tf_idf_scores(testvec, feature_names, chars_or_words = 'words'):
-    for row in testvec.toarray():
-        j = 0
-        for cell in row:
-            j = j + 1
-            if cell != 0:
-                
+    print("type", type(testvec))
+    print("before >>>>testvec", testvec.toarray())
+    testvec = testvec.toarray()
+    for i in range(0, testvec.shape[0]):
+        for j in range(0, testvec.shape[1]):
+            
+            if testvec[i,j] != 0:
                 if chars_or_words == 'chars':
-                    cell = cell * len(feature_names[j])
+                    testvec[i,j] = testvec[i,j] * len(feature_names[j])
+            
                     
                 elif chars_or_words == 'words':
-                    cell =  cell * len(feature_names[j].split())
+                    testvec[i,j] =  testvec[i,j] * len(feature_names[j].split())
+                    
+    
+    print("after >>>>testvec", testvec)   
+    testvec = sparse.csr_matrix(testvec)
+    return testvec
                   
 #def n_gram(n, feature_name):
 #    n_grams_list = list()
