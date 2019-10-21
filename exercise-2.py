@@ -5,7 +5,7 @@ Exercise 2
 import xml.dom.minidom
 import os
 import json
-from sklearn.metrics import precision_score, recall_score, f1_score, average_precision_score
+from sklearn.metrics import precision_score, recall_score, f1_score
 import numpy as np
 preprocess = __import__('exercise-1')
 
@@ -92,6 +92,27 @@ def json_references():
             data[key] = value
             print("value", value)
     return data
+
+def average_precision_score(y_true, y_pred, no_relevant_collection):
+    nr_relevants = 0
+    i = 0
+    Ap_at_sum = 0
+    for el in y_pred:
+        i += 1
+        #is relevant
+        if el in y_true:
+            nr_relevants += 1
+            Ap_at_sum += nr_relevants/i
+        #if not relevant, count as 0
+
+    return Ap_at_sum/no_relevant_collection
+
+#Arguments:
+# ap: numpy array of all average precision scores
+#nr queries: corresponds to the number of documents 
+def mean_average_precision_score(ap, nr_queries):
+    sum_all_ap = np.sum(ap)
+    return sum_all_ap/nr_queries
     
 def main():
     train, test = get_dataset()
@@ -101,7 +122,7 @@ def main():
             
     precisions = list()
     precisions = np.array(precisions)
-    #ap = list()
+    all_ap = list()
     for key, doc in test.items():
             doc = preprocess.sentence_preprocess(doc)
             print(">>>>doc to be tested", key)
@@ -114,7 +135,11 @@ def main():
             print(">>> precision score", precision_5)
             print(">>> recall score", recall_score(y_true, y_pred, average='micro'))
             print(">>> f1 score", f1_score(y_true, y_pred, average='micro'))
-            #ap.append(average_precision_score(y_true, y_score))
+            print(">>> average precision score", )
+            #Q: relevant documents in collection, should consider more than
+            #y_true? Just 5?
+            ap = average_precision_score(y_true, y_pred, len(y_true))
+            all_ap.append(ap)
   
     #GLOBAL        
     #mean value for the precision@5 evaluation metric
@@ -122,8 +147,10 @@ def main():
     mean_precision_5 = np.mean(precisions)
     print(">>> mean precision@5", mean_precision_5)
 	
-    #TO-DO: mean average precision
-    #what is y_score argument?
+    #mean average precision
+    all_ap = np.array(all_ap)
+    mAP = mean_average_precision_score(all_ap,len(test.keys()))
+    print(">>> mean average precision", mAP)
    
  
    
