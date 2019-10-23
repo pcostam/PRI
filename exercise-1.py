@@ -20,10 +20,10 @@ def main():
     print(keys)
     
 def get_20_news_group(size_train):
-    train = fetch_20newsgroups(subset = 'train', remove=('footers', 'quotes'), shuffle=True) #The F-score will be lower because it is more realistic.
-    test  = fetch_20newsgroups(subset = 'test', remove=('footers', 'quotes') ) #The F-score will be lower because it is more realistic.
+    train = fetch_20newsgroups(subset = 'train', shuffle=True) #The F-score will be lower because it is more realistic.
+    test  = fetch_20newsgroups(subset = 'test') #The F-score will be lower because it is more realistic.
     
-    return train.data[:30], [test.data[0]]
+    return train.data[:30], [test.data[2]]
 
 def tf_idf(train, test):
     candidates_train = list()
@@ -34,7 +34,7 @@ def tf_idf(train, test):
     for doc in train:
         phrases = nltk.sent_tokenize(doc)
         candidates_tokanize_train = sentence_preprocess(phrases)
-        candidates_train = candidates_train + [candidates_tokanize_train]
+        candidates_train = candidates_train + candidates_tokanize_train
             
     vectorizer_tfidf = tf_idf_train(candidates_train)   
     #TEST
@@ -79,8 +79,8 @@ def tf_idf_train(candidates_train):
     #vectorizer_tfidf.fit_transform(candidates_train)
     
     #print("candidates_train>>>", candidates_train)
-    for doc in candidates_train:
-       vectorizer_tfidf.fit_transform(doc)
+    
+    vectorizer_tfidf.fit_transform(candidates_train)
     #vectorizer_tfidf.fit_transform(candidates_train)
     #DÁ O DICONÁRIO!!!
     
