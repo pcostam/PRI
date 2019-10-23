@@ -7,6 +7,9 @@ import os
 import json
 from sklearn.metrics import precision_score, recall_score, f1_score
 import numpy as np
+import re
+import string
+from sklearn.feature_extraction.text import TfidfVectorizer 
 preprocess = __import__('exercise-1')
 
 """
@@ -123,25 +126,104 @@ def average_precision_score(y_true, y_pred, no_relevant_collection):
 def mean_average_precision_score(ap, nr_queries):
     sum_all_ap = np.sum(ap)
     return sum_all_ap/nr_queries
+"""
+returns vectorizer
+"""
+def tf_idf_train(candidates_train, th_min=1, th_max=1):
+     #Learn the vocabulary dictionary and return term-document matrix
+    vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word', 
+                                       ngram_range=(1, 3), stop_words = 'english', max_df=th_max, min_df=th_min) #Removing very rare words (3) and Removing very frequent words (90%)
     
+    for txt in candidates_train:
+        vectorizer_tfidf.fit_transform(txt)
+        
+    
+    return vectorizer_tfidf
+def sentence_preprocess(phrases):
+    candidates =[]
+    for phrase in phrases:  
+        phrase = phrase.lower()
+        #Remove puntuation, except hifen
+        remove = string.punctuation
+        remove = remove.replace("-", "") # don't remove hyphens
+        pattern = r"[{}]".format(remove) # create the pattern
+        phrase = re.sub(pattern, "", phrase)
+        
+        phrase = re.sub(r'[^\D]'  ,'',phrase)
+        phrase = re.sub(r'[\n]',' ', phrase)
+        candidates.append(phrase)
+        
+    return candidates
+def tf_idf_aux(vectorizer_tfidf,doc_test):      
+    testvec  = vectorizer_tfidf.transform(doc_test)                     
+    #print(testvec.toarray())
+    #find maximum for each of the terms over the dataset
+    max_val = testvec.max(axis=1).toarray().ravel()
+   
+    feature_names = vectorizer_tfidf.get_feature_names()
+  
+    testvec = preprocess.tf_idf_scores(testvec, feature_names,chars_or_words="words")
+    
+    sort_tfidf = max_val.argsort()
+ 
+    result = list()
+    for i in sort_tfidf[-5:]:
+        result.append(feature_names[i])
+    
+    print(result)
+    return result
+    
+    #Vocab of all docs
+    #print('vocab: ', type(vectorizer_tfidf.vocabulary_))
+    
+    #Retrieve the idf of every term of the vocabulary (all docs)
+    #print('tf : ', vectorizer_tfidf.idf_)   
+
+def tf_idf_test(vectorizer_tfidf, candidates_tokanize_test):
+    test_vector = vectorizer_tfidf.transform(candidates_tokanize_test)
+    
+    #print(vectorizer_tfidf.vocabulary_.keys())#DA TERMOS!!!!!!
+#    #test_vector  = vectorizer_tfidf.transform(candidates_tokanize_test)
+#    print(testvec)
+    return test_vector
+
+
+def calc_prediction(test_vector, vectorizer_tfidf):
+    feature_names = vectorizer_tfidf.get_feature_names()
+    test_vector = tf_idf_scores(test_vector.tocoo(), feature_names,chars_or_words="words")
+    
+    #SORT
+    sorted_terms = sort_terms(test_vector.tocoo())
+    keyphrases = extract_keyphrases(feature_names ,sorted_terms)
+    
+    return keyphrases.keys()
+
+ 
 def main():
     train, test = get_dataset(t="lemma")
     true_labels = json_references()
     train_set = dict()
 
     for key, doc in train.items():
-            doc = preprocess.sentence_preprocess(doc)
+            doc = sentence_preprocess(doc)
             train_set[key] = doc
                         
         
     precisions = list()
     precisions = np.array(precisions)
     all_ap = list()
-    vectorizer_tfidf = preprocess.tf_idf_train(train_set.values())
+   
+    vectorizer_tfidf = tf_idf_train(train_set.values())
     for key, doc in test.items():
-            doc = preprocess.sentence_preprocess(doc)
+            doc = sentence_preprocess(doc)
+            y_pred = list()
             print(">>>>doc to be tested", key)
-            y_pred = preprocess.tf_idf_aux(vectorizer_tfidf, doc)
+            testvec = tf_idf_test(vectorizer_tfidf, doc)
+            keys_pred = calc_prediction(testvec,vectorizer_tfidf )
+            for key_pred in keys_pred:
+                y_pred.append(key_pred)
+        
+            
             print(">>>y_pred", y_pred)
             y_true = true_labels[key]
             print(">>>y_true", y_true)
