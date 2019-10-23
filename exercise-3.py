@@ -56,21 +56,29 @@ def get_tagged(t="word"):
                 for num in range(len(child)):
                         group_words.append(child[num][0])
                 n_gram = " ".join(group_words)
-                valid_grams.append(n_gram)
+                if n_gram not in valid_grams:
+                    valid_grams.append(n_gram)
     print(">>>valid_grams", valid_grams)
     return valid_grams
 
 def main():
      test_set, train_set = exercise2.get_dataset("train",t="lemma", test_size=0.25)
-     vectorizer_tfidf = exercise1.tf_idf_train(train_set)
-     grams = vectorizer_tfidf.get_feature_names()
+     
+     true_labels = exercise2.json_references()
      valid_grams = get_tagged(t="lemma")
-     to_delete = list(set(grams) - set(valid_grams))
-     #delete terms that do not match from vocabulary
-     for term in to_delete:
-         del vectorizer_tfidf.vocabulary_[term] 
-     print(">>>after", vectorizer_tfidf.vocabulary_)
-     print(">>>after", vectorizer_tfidf.get_feature_names())
+     vectorizer_tfidf = exercise1.tf_idf_train(train_set, vocabulary=valid_grams)
+     
+     for key, doc in test_set.items():
+         y_pred = list()
+         doc = exercise2.sentence_preprocess(doc)
+         testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
+         keys_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
+        
+         for key_pred in keys_pred:
+            y_pred.append(key_pred)
+         print(">>>y_pred", y_pred)
+         y_true = true_labels[key]
+         print(">>>y_true", y_true)
      
      
      

@@ -77,10 +77,14 @@ def sentence_preprocess(phrases):
 #Creates vectorizer and fits it to the train set
 #@input:train set already pre-processed 
 #@return: vectorizer 
-def tf_idf_train(candidates_train):
+def tf_idf_train(candidates_train, vocabulary=[]):
      #Learn the vocabulary dictionary and return term-document matrix
-    vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word', ngram_range=(1, 3), stop_words = 'english')
-    vectorizer_tfidf.fit_transform(candidates_train)
+    if(vocabulary == []):
+        vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word', ngram_range=(1, 3), stop_words = 'english')
+        vectorizer_tfidf.fit_transform(candidates_train)
+    else:
+        vectorizer_tfidf = TfidfVectorizer(vocabulary=vocabulary, use_idf = True, analyzer = 'word', ngram_range=(1, 3), stop_words = 'english')
+        vectorizer_tfidf.fit_transform(candidates_train)
         
     return vectorizer_tfidf
 
