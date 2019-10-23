@@ -16,7 +16,8 @@ stop_words = set(nltk.corpus.stopwords.words("english"))
 
 def main():
     train, test = get_20_news_group(30)
-    tf_idf(train, test)
+    keys = tf_idf(train, test)
+    print(keys)
     
 def get_20_news_group(size_train):
     train = fetch_20newsgroups(subset = 'train', remove=('footers', 'quotes'), shuffle=True) #The F-score will be lower because it is more realistic.
@@ -28,6 +29,7 @@ def tf_idf(train, test):
     candidates_train = list()
     candidates_tokanize_train = list()
     candidates_tokanize_test = list()
+    result = list()
     #TRAIN
     for doc in train:
         phrases = nltk.sent_tokenize(doc)
@@ -40,13 +42,19 @@ def tf_idf(train, test):
     candidates_tokanize_test = sentence_preprocess(phrases)
     test_vector = tf_idf_test(vectorizer_tfidf, candidates_tokanize_test)
     
-    feature_names = vectorizer_tfidf.get_feature_names()
-    test_vector = tf_idf_scores(test_vector.tocoo(), feature_names,chars_or_words="words")
+    keys = calc_prediction(test_vector, vectorizer_tfidf)
+    
+    for key in keys:
+        result.append(key)
+        
+    
+    #feature_names = vectorizer_tfidf.get_feature_names()
+    #test_vector = tf_idf_scores(test_vector.tocoo(), feature_names,chars_or_words="words")
     
     #SORT
-    sorted_terms = sort_terms(test_vector.tocoo())
-    keyphrases = extract_keyphrases(feature_names ,sorted_terms)
-    print(keyphrases)
+    #sorted_terms = sort_terms(test_vector.tocoo())
+    #keyphrases = extract_keyphrases(feature_names ,sorted_terms)
+    return result
     
 
 def sentence_preprocess(phrases):
@@ -133,4 +141,16 @@ def extract_keyphrases(feature_names ,sorted_terms):
         results[feature_vals[idx]]=score_vals[idx]
     
     return results
+
+def calc_prediction(test_vector, vectorizer_tfidf):
+    feature_names = vectorizer_tfidf.get_feature_names()
+    test_vector = tf_idf_scores(test_vector.tocoo(), feature_names,chars_or_words="words")
+    
+    #SORT
+    sorted_terms = sort_terms(test_vector.tocoo())
+    keyphrases = extract_keyphrases(feature_names ,sorted_terms)
+    
+    return keyphrases.keys()
+    
+    
     
