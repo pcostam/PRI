@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
+"""
+Created on Tue Oct 22 17:19:07 2019
+
+@author: 
+"""
 from sklearn.feature_extraction.text import TfidfVectorizer 
 from sklearn.datasets import fetch_20newsgroups
-import numpy as np
 import nltk 
 import re
 from scipy import sparse
 import string
-#import sys
-#np.set_printoptions(threshold=sys.maxsize)
 
 stop_words = set(nltk.corpus.stopwords.words("english"))
 
@@ -16,80 +18,37 @@ def main():
     tf_idf(train, test)
     
 def get_20_news_group(size_train):
-    train = fetch_20newsgroups(subset = 'train', remove=('footers', 'quotes'),shuffle=True) #The F-score will be lower because it is more realistic.
-    test  = fetch_20newsgroups(subset = 'test', remove=('footers', 'quotes') ) #The F-score will be lower because it is more realistic.
+    train = fetch_20newsgroups(subset = 'train', remove=('footers', 'quotes', 'headers'),shuffle=True) #The F-score will be lower because it is more realistic.
+    test  = fetch_20newsgroups(subset = 'test', remove=('footers', 'quotes', 'headers') ) #The F-score will be lower because it is more realistic.
  
     return train.data[:30], [test.data[0]]
 
-"""
-returns vectorizer
-"""
-def tf_idf_train(candidates_train, th_min=1, th_max=1):
-     #Learn the vocabulary dictionary and return term-document matrix
-    vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word', 
-                                       ngram_range=(1, 3), stop_words = 'english', max_df=th_max, min_df=th_min) #Removing very rare words (3) and Removing very frequent words (90%)
-    
-    for txt in candidates_train:
-        vectorizer_tfidf.fit_transform(txt)
-        
-    
-    return vectorizer_tfidf
-
-def tf_idf_aux(vectorizer_tfidf,doc_test):      
-    testvec  = vectorizer_tfidf.transform(doc_test)                     
-    #print(testvec.toarray())
-    #find maximum for each of the terms over the dataset
-    max_val = testvec.max(axis=1).toarray().ravel()
-   
-    feature_names = vectorizer_tfidf.get_feature_names()
-  
-    testvec = tf_idf_scores(testvec, feature_names,chars_or_words="words", scale_factor=20)
-    
-    sort_tfidf = max_val.argsort()
- 
-    result = list()
-    for i in sort_tfidf[-5:]:
-        result.append(feature_names[i])
-    
-    print(result)
-    return result
-    
-    #Vocab of all docs
-    #print('vocab: ', type(vectorizer_tfidf.vocabulary_))
-    
-    #Retrieve the idf of every term of the vocabulary (all docs)
-    #print('tf : ', vectorizer_tfidf.idf_)   
-           
 def tf_idf(train, test):
-    candidates_train = list()
-    candidates_test = list()
-    
+    #candidates_train = list()
+    all_files_str = str()
+    candidates_tokanize_train = list()
+    candidates_tokanize_test = list()
+    #TRAIN
     for doc in train:
-        aux = text_preprocess(doc)
-        candidates_train = candidates_train + [aux]
-    tf_idf_vectorizer = tf_idf_train(candidates_train)   
-    for doc in test:
-        doc = text_preprocess(doc)
-        candidates_test = candidates_test + [aux]
+        phrases = nltk.sent_tokenize(doc)
+        candidates_tokanize_train = sentence_preprocess(phrases)
+        all_files_str = all_files_str + candidates_tokanize_train[0]
+        #candidates_train = candidates_train + [candidates_tokanize_train]
+        
+    vectorizer_tfidf = tf_idf_train([all_files_str])   
+    #TEST
+    phrases = nltk.sent_tokenize(test[0])
+    candidates_tokanize_test = sentence_preprocess(phrases)
+    test_vector = tf_idf_test(vectorizer_tfidf, candidates_tokanize_test)
     
-    for doc in candidates_test:
-        tf_idf_aux(tf_idf_vectorizer,doc)
+    feature_names = vectorizer_tfidf.get_feature_names()
+    test_vector = tf_idf_scores(test_vector, feature_names,chars_or_words="words")
     
+    #SORT
+    sorted_terms = sort_terms(test_vector.tocoo())
+    keyphrases = extract_keyphrases(feature_names ,sorted_terms)
+    print(keyphrases)
     
-   
-    
-def text_preprocess(corpus, lemma=False, phrases=True):
-    candidates =[]
-    
-    #Phrase division
-    phrases = nltk.sent_tokenize(corpus)
- 
-    print(phrases)
- 
-  
-    candidates = sentence_preprocess(phrases)
-    
-    return candidates
 
 def sentence_preprocess(phrases):
     candidates =[]
@@ -107,44 +66,69 @@ def sentence_preprocess(phrases):
         
     return candidates
 
-def tf_idf_scores(testvec, feature_names, chars_or_words = 'words', scale_factor=1):
+def tf_idf_train(candidates_train):
+     #Learn the vocabulary dictionary and return term-document matrix
+    vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word', ngram_range=(1, 3), stop_words = 'english')
+    #for doc in candidates_train:
+    #   vectorizer_tfidf.fit_transform(doc)
+    vectorizer_tfidf.fit_transform(candidates_train)
+    #DÁ O DICONÁRIO!!!
+    
+    #vectorizer_tfidf_fitted = map(vectorizer_tfidf.fit_transform, candidates_train)
+    
+    #print(vectorizer_tfidf.vocabulary_)
+        
+    return vectorizer_tfidf
+
+def tf_idf_test(vectorizer_tfidf, candidates_tokanize_test):
+    test_vector = vectorizer_tfidf.transform(candidates_tokanize_test)
+    
+    #print(vectorizer_tfidf.vocabulary_.keys())#DA TERMOS!!!!!!
+#    #test_vector  = vectorizer_tfidf.transform(candidates_tokanize_test)
+#    print(testvec)
+    return test_vector
+
+def tf_idf_scores(test_vector, feature_names,chars_or_words="words"):
     #print("type", type(testvec))
     #print("before >>>>testvec", testvec.toarray())
 
-    testvec = testvec.toarray()
+    test_vector = test_vector.toarray()
     
-    for i in range(0, testvec.shape[0]):
-        for j in range(0, testvec.shape[1]):
-            if testvec[i,j] != 0:
+    for i in range(0, test_vector.shape[0]):
+        for j in range(0, test_vector.shape[1]):
+            if test_vector[i,j] != 0:
                 if chars_or_words == 'chars':
-                    testvec[i,j] = testvec[i,j] * len(feature_names[j]) * scale_factor       
+                    test_vector[i,j] = test_vector[i,j] * len(feature_names[j])     
                     
                 elif chars_or_words == 'words':
-                    testvec[i,j] =  testvec[i,j] * len(feature_names[j].split()) * scale_factor
-     
+                    test_vector[i,j] =  test_vector[i,j] * len(feature_names[j].split())
+    
     #print("after >>>>testvec", testvec)
-    testvec = sparse.csr_matrix(testvec)
-    return testvec
-                  
-#def n_gram(n, feature_name):
-#    n_grams_list = list()
-    
-#    for gram in feature_name:
-#        if len(nltk.word_tokenize(gram)) == n:
-#            if is_right_type(n, gram):
-#                n_grams_list.append(gram)
-    
-#    return n_grams_list
+    test_vector = sparse.csr_matrix(test_vector)
+    return test_vector
 
-#def is_right_type(n, gram):
-#    tagged_grams = nltk.pos_tag_sents(gram)
+def sort_terms(test_vector):
+    tuples = zip(test_vector.col, test_vector.data)
+    return sorted(tuples, key=lambda x: (x[1], x[0]), reverse=True)
+
+def extract_keyphrases(feature_names ,sorted_terms):
+    sorted_terms = sorted_terms[:5]
+ 
+    score_vals = []
+    feature_vals = []
     
-#    if n == 2:
+    # word index and corresponding tf-idf score
+    for idx, score in sorted_terms:
         
-#    if n == 3:    
+        #keep track of feature name and its corresponding score
+        score_vals.append(score)
+        feature_vals.append(feature_names[idx])
+ 
+    #create a tuples of feature,score
+    #results = zip(feature_vals,score_vals)
+    results= {}
+    for idx in range(len(feature_vals)):
+        results[feature_vals[idx]]=score_vals[idx]
     
-    
-    
-    
-
+    return results
     
