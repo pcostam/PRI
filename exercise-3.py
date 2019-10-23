@@ -69,6 +69,7 @@ def main():
      vectorizer_tfidf = exercise1.tf_idf_train(train_set, vocabulary=valid_grams)
      
      for key, doc in test_set.items():
+         print(">>>>doc to be tested", key)
          y_pred = list()
          doc = exercise2.sentence_preprocess(doc)
          testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)

@@ -100,16 +100,18 @@ def tf_idf_test(vectorizer_tfidf, candidates_tokanize_test):
 def tf_idf_scores(test_vector, feature_names,chars_or_words="words"):
 
     test_vector = test_vector.toarray()
-
+    #count = 0
     for i in range(0, test_vector.shape[0]):
         for j in range(0, test_vector.shape[1]):
             if test_vector[i,j] != 0:
+                #count += 1
                 if chars_or_words == 'chars':
                     test_vector[i,j] = test_vector[i,j] * len(feature_names[j])     
                     
                 elif chars_or_words == 'words':
                     test_vector[i,j] =  test_vector[i,j] * len(feature_names[j].split())
     
+    #print("count", count)
     test_vector = sparse.csr_matrix(test_vector)
     return test_vector
 
@@ -124,24 +126,19 @@ def sort_terms(test_vector):
 #@input: feature_names and sorted_terms
 #@return: dictionary with top 5 terms and corresponding scores
 def extract_keyphrases(feature_names ,sorted_terms):
-    sorted_terms = sorted_terms[:5]
-    
-    score_vals = list()
-    feature_vals = list()
-    
+    sorted_terms = sorted_terms[0:5]
+  
+  
+    keyphrases = list()
+    results= dict()
     # word index and corresponding tf-idf score
     for idx, score in sorted_terms:
-        
-        #keep track of feature name and its corresponding score
-        score_vals.append(score)
-        feature_vals.append(feature_names[idx])
+        results[feature_names[idx]] = score
+        keyphrases.append(feature_names[idx])
+    
 
-    #create a tuples of feature,score
-    #results = zip(feature_vals,score_vals)
-    results= dict()
-    for idx in range(len(feature_vals)):
-        results[feature_vals[idx]]=score_vals[idx]
-    return results
+    
+    return keyphrases
 
 #computes predictions of top 5 keyphrases
 #@input: matrix with tf-idf final scores and vectorizer
@@ -154,4 +151,4 @@ def calc_prediction(test_vector, vectorizer_tfidf):
     sorted_terms = sort_terms(test_vector.tocoo())
     keyphrases = extract_keyphrases(feature_names ,sorted_terms)
     
-    return keyphrases.keys()
+    return keyphrases
