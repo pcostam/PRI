@@ -19,31 +19,7 @@ token (optional): must be "word" or "lemma"
 Returns:
 a list where each element corresponds to a list(document) containing strings (sentences) 
 """
-def get_dataset(t="word"):
-    sentences_doc_train = get_dataset_aux("train",t)
-    
-    train = dict()
-    test = dict()
-    size_train = len(sentences_doc_train)
-    size_test = size_train/3
-    
-    i = 0
-    #25% test set, 75% train set
-    for key, value in sentences_doc_train.items():
-            train[key] = value
-            i += 1
-            if i > (size_train-size_test):
-                test[key] = value
-        
-        
-       
-    print("train>>>", len(train))
-    print("test>>>", len(test))
-
-  
-    return train,test
-
-def get_dataset_aux(folder,t="word"):
+def get_dataset(folder,t="word", test_size=0.25):
     path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\" + folder
  
     files = []
@@ -53,7 +29,13 @@ def get_dataset_aux(folder,t="word"):
             if '.xml' in file:
                 files.append(os.path.join(r, file))
                 
-    sentences_doc = dict()
+    train_set = list()
+    i = 0
+    files = files[:30]
+    size_dataset = len(files)
+    index_test = size_dataset*test_size
+    test_set = dict()
+    
     for f in files[:30]:
         base_name=os.path.basename(f)
         key = os.path.splitext(base_name)[0]
@@ -61,26 +43,35 @@ def get_dataset_aux(folder,t="word"):
 
         # get a list of XML tags from the document and print each one
         sentences = doc.getElementsByTagName("sentence")
-        sentences_list = list()
+        i +=1
         for sentence in sentences:
                 tokens = sentence.getElementsByTagName("token")
                 sentence_string = ""
                 for token in tokens:
-                    word = token.getElementsByTagName(t)[0].firstChild.data
-                   
+                    word = token.getElementsByTagName(t)[0].firstChild.data  
                     sentence_string = sentence_string + " " + word
+                #ended iterating tokens from sentence
+                #GENERATE CLAUSES
+                clauses_list = sentence_string.split(",")
+                for clause in clauses_list:
+                    if i <= (size_dataset-index_test):    
+                        train_set.append(clause)
                 
-                sentences_list.append(sentence_string)
-        sentences_doc[key] = sentences_list
-        
-    return sentences_doc
+                    elif(i > size_dataset - index_test):
+                        if key in test_set:
+                            test_set[key].append(clause)
+                        else:
+                            test_set[key] = [clause]
+                    
+      
+    return test_set, train_set
        
     
     
     
 """
-Returns dictionary. Key is filename and value is list containing lists 
-with keyphrases
+Returns dictionary with only n-grams where n < 4. Key is filename and value is list containing lists 
+with keyphrases. 
 """
 def json_references():
     path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\references"
@@ -134,8 +125,8 @@ def tf_idf_train(candidates_train, th_min=1, th_max=1):
     vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word', 
                                        ngram_range=(1, 3), stop_words = 'english', max_df=th_max, min_df=th_min) #Removing very rare words (3) and Removing very frequent words (90%)
     
-    for txt in candidates_train:
-        vectorizer_tfidf.fit_transform(txt)
+    #for txt in candidates_train:
+    vectorizer_tfidf.fit_transform(candidates_train)
         
     
     return vectorizer_tfidf
@@ -218,21 +209,19 @@ def extract_keyphrases(feature_names ,sorted_terms):
     return results
 
 def main():
-    train, test = get_dataset(t="lemma")
+    test_set, train_set = get_dataset("train",t="lemma", test_size=0.25)
     true_labels = json_references()
-    train_set = dict()
-
-    for key, doc in train.items():
-            doc = sentence_preprocess(doc)
-            train_set[key] = doc
-                        
+    
+    for sentence in train_set:
+        sentence = sentence_preprocess(sentence)
+    
         
     precisions = list()
     precisions = np.array(precisions)
     all_ap = list()
    
-    vectorizer_tfidf = tf_idf_train(train_set.values())
-    for key, doc in test.items():
+    vectorizer_tfidf = tf_idf_train(train_set)
+    for key, doc in test_set.items():
             doc = sentence_preprocess(doc)
             y_pred = list()
             print(">>>>doc to be tested", key)
@@ -264,7 +253,7 @@ def main():
 	
     #mean average precision
     all_ap = np.array(all_ap)
-    mAP = mean_average_precision_score(all_ap,len(test.keys()))
+    mAP = mean_average_precision_score(all_ap,len(test_set.keys()))
     print(">>> mean average precision", mAP)
    
  
