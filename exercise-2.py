@@ -10,7 +10,7 @@ import numpy as np
 import re
 import string
 from sklearn.feature_extraction.text import TfidfVectorizer 
-preprocess = __import__('exercise-1')
+from scipy import sparse
 
 """
 Process XML file.
@@ -154,30 +154,6 @@ def sentence_preprocess(phrases):
         candidates.append(phrase)
         
     return candidates
-def tf_idf_aux(vectorizer_tfidf,doc_test):      
-    testvec  = vectorizer_tfidf.transform(doc_test)                     
-    #print(testvec.toarray())
-    #find maximum for each of the terms over the dataset
-    max_val = testvec.max(axis=1).toarray().ravel()
-   
-    feature_names = vectorizer_tfidf.get_feature_names()
-  
-    testvec = preprocess.tf_idf_scores(testvec, feature_names,chars_or_words="words")
-    
-    sort_tfidf = max_val.argsort()
- 
-    result = list()
-    for i in sort_tfidf[-5:]:
-        result.append(feature_names[i])
-    
-    print(result)
-    return result
-    
-    #Vocab of all docs
-    #print('vocab: ', type(vectorizer_tfidf.vocabulary_))
-    
-    #Retrieve the idf of every term of the vocabulary (all docs)
-    #print('tf : ', vectorizer_tfidf.idf_)   
 
 def tf_idf_test(vectorizer_tfidf, candidates_tokanize_test):
     test_vector = vectorizer_tfidf.transform(candidates_tokanize_test)
@@ -186,6 +162,10 @@ def tf_idf_test(vectorizer_tfidf, candidates_tokanize_test):
 #    #test_vector  = vectorizer_tfidf.transform(candidates_tokanize_test)
 #    print(testvec)
     return test_vector
+
+def sort_terms(test_vector):
+    tuples = zip(test_vector.col, test_vector.data)
+    return sorted(tuples, key=lambda x: (x[1], x[0]), reverse=True)
 
 
 def calc_prediction(test_vector, vectorizer_tfidf):
@@ -197,8 +177,46 @@ def calc_prediction(test_vector, vectorizer_tfidf):
     keyphrases = extract_keyphrases(feature_names ,sorted_terms)
     
     return keyphrases.keys()
+def tf_idf_scores(test_vector, feature_names,chars_or_words="words"):
+    #print("type", type(testvec))
+    #print("before >>>>testvec", testvec.toarray())
 
+    test_vector = test_vector.toarray()
+    
+    for i in range(0, test_vector.shape[0]):
+        for j in range(0, test_vector.shape[1]):
+            if test_vector[i,j] != 0:
+                if chars_or_words == 'chars':
+                    test_vector[i,j] = test_vector[i,j] * len(feature_names[j])     
+                    
+                elif chars_or_words == 'words':
+                    test_vector[i,j] =  test_vector[i,j] * len(feature_names[j].split())
+    
+    #print("after >>>>testvec", testvec)
+    test_vector = sparse.csr_matrix(test_vector)
+    return test_vector
+
+def extract_keyphrases(feature_names ,sorted_terms):
+    sorted_terms = sorted_terms[:5]
  
+    score_vals = []
+    feature_vals = []
+    
+    # word index and corresponding tf-idf score
+    for idx, score in sorted_terms:
+        
+        #keep track of feature name and its corresponding score
+        score_vals.append(score)
+        feature_vals.append(feature_names[idx])
+ 
+    #create a tuples of feature,score
+    #results = zip(feature_vals,score_vals)
+    results= {}
+    for idx in range(len(feature_vals)):
+        results[feature_vals[idx]]=score_vals[idx]
+    
+    return results
+
 def main():
     train, test = get_dataset(t="lemma")
     true_labels = json_references()
