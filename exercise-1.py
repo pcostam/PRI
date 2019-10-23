@@ -19,7 +19,7 @@ def main():
 #@input:size disered for the train set
 #@return: set of train set and one test doc 
 def get_20_news_group(size_train):
-    train = fetch_20newsgroups(subset = 'train') #The F-score will be lower because it is more realistic.
+    train = fetch_20newsgroups(subset = 'train', shuffle = True) #The F-score will be lower because it is more realistic.
     test  = fetch_20newsgroups(subset = 'test') #The F-score will be lower because it is more realistic.
     
     return train.data[:30], [test.data[0]]
