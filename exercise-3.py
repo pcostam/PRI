@@ -7,6 +7,20 @@ import xml.dom.minidom
 from nltk import Tree, RegexpParser
 exercise2 = __import__('exercise-2')
 exercise1 = __import__('exercise-1')
+import re
+import string
+def preprocess_word(word):
+    word = word.lower()
+    #Remove puntuation, except hifen
+    remove = string.punctuation
+    remove = remove.replace("-", "") # don't remove hyphens
+    pattern = r"[{}]".format(remove) # create the pattern
+    word = re.sub(pattern, "", word)
+        
+    word = re.sub(r'[^\D]'  ,'',word)
+    word = re.sub(r'[\n]','', word)
+    return word
+        
 #
 #Returns: list of tuples where each corresponds to (word, tag). Each word
 # is from train set
@@ -56,6 +70,8 @@ def get_tagged(t="word"):
                 for num in range(len(child)):
                         group_words.append(child[num][0])
                 n_gram = " ".join(group_words)
+                n_gram = preprocess_word(n_gram)
+               
                 if n_gram not in valid_grams:
                     valid_grams.append(n_gram)
     print(">>>valid_grams", valid_grams)
@@ -68,18 +84,18 @@ def main():
      valid_grams = get_tagged(t="lemma")
      vectorizer_tfidf = exercise1.tf_idf_train(train_set, vocabulary=valid_grams)
      
-     for key, doc in test_set.items():
-         print(">>>>doc to be tested", key)
-         y_pred = list()
-         doc = exercise2.sentence_preprocess(doc)
-         testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
-         keys_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
-        
-         for key_pred in keys_pred:
-            y_pred.append(key_pred)
-         print(">>>y_pred", y_pred)
-         y_true = true_labels[key]
-         print(">>>y_true", y_true)
+     #for key, doc in test_set.items():
+     key = "C-75"
+     print(">>>>doc to be tested", key)
+     doc = test_set[key]
+     y_pred = list()
+     doc = exercise2.sentence_preprocess(doc)
+     testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
+     y_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
+     
+     print(">>>y_pred", y_pred)
+     y_true = true_labels[key]
+     print(">>>y_true", y_true)
      
      
      

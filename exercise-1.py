@@ -48,11 +48,8 @@ def tf_idf(train, test):
     test_vector = tf_idf_test(vectorizer_tfidf, candidates_tokanize_test)
     
     keys = calc_prediction(test_vector, vectorizer_tfidf)
-    
-    for key in keys:
-        result.append(key)
-
-    return result
+   
+    return keys
     
 #cleaning each sentence
 #@input:phrase
