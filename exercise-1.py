@@ -31,7 +31,7 @@ def preprocess(text):
     remove = remove.replace("-", "") # don't remove hyphens
     pattern = r"[{}]".format(remove) # create the pattern
     text = re.sub(pattern, "", text)
-    text = re.sub("r'^(?!.*?(\w)+(\w+[-]\w+)*([-]\w+)*).*", "", text)
+    text = re.sub(r'(?<!(\w))[-]+(?!(\w)+)', "", text)
     text = re.sub(r'[^\D]'  ,'',text)
     text = re.sub(r'[\n]',' ', text)
     
@@ -55,7 +55,7 @@ def generate_ngrams(clauses, min_ngrams, max_ngrams):
             for ngram in ngrams:
                 group = " ".join(ngram)
                 vocab.append(group)
-  
+    print(">>>vocab", vocab)
     return list(set(vocab))
 
 #Tokenizes set train and test doc by sentence
@@ -80,13 +80,14 @@ def tf_idf(docs, test):
 #Creates vectorizer and fits it to the docs
 #@input:train set already pre-processed 
 #@return: vectorizer 
-def tf_idf_train(docs):
-        clauses = generate_clauses(docs)
-        vocabulary = generate_ngrams(clauses, 2, 3)
-        
-        vectorizer_tfidf = TfidfVectorizer(vocabulary=vocabulary, use_idf = True, analyzer = 'word', ngram_range=(1,3), stop_words = 'english')
+def tf_idf_train(docs, vocab=[]):
+        if vocab == []:
+            clauses = generate_clauses(docs)
+            vocab = generate_ngrams(clauses, 2, 3)
+      
+        vectorizer_tfidf = TfidfVectorizer(vocabulary=vocab, use_idf = True, analyzer = 'word', ngram_range=(1,3), stop_words = 'english')
         vectorizer_tfidf.fit_transform(docs)
-            
+         
         return vectorizer_tfidf
   
 
@@ -99,7 +100,7 @@ def tf_idf_test(vectorizer_tfidf, doc_test):
 #computes tf-idf final scores according to it len 
 #@input: matrix with tf-idf scores, feature_names, char_or_word
 #@return: matrix with tf-idf final scores 
-def tf_idf_scores(test_vector, feature_names,chars_or_words="words"):
+def tf_idf_scores(test_vector, feature_names,chars_or_words="words", scale_factor=1):
 
     test_vector = test_vector.toarray()
    
@@ -107,11 +108,11 @@ def tf_idf_scores(test_vector, feature_names,chars_or_words="words"):
         for j in range(0, test_vector.shape[1]):
             if test_vector[i,j] != 0:
                 if chars_or_words == 'chars':
-                    test_vector[i,j] = test_vector[i,j] * len(feature_names[j])   
+                    test_vector[i,j] = test_vector[i,j] * len(feature_names[j])*scale_factor   
                  
                     
                 elif chars_or_words == 'words':
-                    test_vector[i,j] =  test_vector[i,j] * len(feature_names[j].split())
+                    test_vector[i,j] =  test_vector[i,j] * len(feature_names[j].split())*scale_factor
     
     test_vector = sparse.csr_matrix(test_vector)
     return test_vector
@@ -144,7 +145,7 @@ def extract_keyphrases(feature_names ,sorted_terms):
 #computes predictions of top 5 keyphrases
 #@input: matrix with tf-idf final scores and vectorizer
 #@return: top 5 keyphrases
-def calc_prediction(test_vector, vectorizer_tfidf):
+def calc_prediction(test_vector, vectorizer_tfidf, scale_factor=1):
     feature_names = vectorizer_tfidf.get_feature_names()
     test_vector = tf_idf_scores(test_vector.tocoo(), feature_names,chars_or_words="words")
     

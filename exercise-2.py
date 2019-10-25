@@ -7,8 +7,6 @@ import os
 import json
 from sklearn.metrics import precision_score, recall_score, f1_score
 import numpy as np
-import re
-import string
 exercise1 = __import__('exercise-1')
 """
 Process XML file. Preprocesses text
@@ -17,7 +15,7 @@ token (optional): must be "word" or "lemma"
 Returns:
 a list where each element corresponds to a list(document) containing strings (sentences) 
 """
-def get_dataset(folder,t="word", test_size=0.25):
+def get_dataset(folder,t="word", test_size=5):
     path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\" + folder
  
     files = []
@@ -27,15 +25,14 @@ def get_dataset(folder,t="word", test_size=0.25):
             if '.xml' in file:
                 files.append(os.path.join(r, file))
                 
-    train_set = list()
-    i = 0
-    files = files[:30]
-    size_dataset = len(files)
-    index_test = size_dataset*test_size
-    test_set = dict()
-   
+    docs = dict()
     
+    files = files[:30]
+    test_set = dict()
+    i = 0
+  
     for f in files[:30]:
+        i += 1
         text = str()
         base_name=os.path.basename(f)
         key = os.path.splitext(base_name)[0]
@@ -43,7 +40,7 @@ def get_dataset(folder,t="word", test_size=0.25):
 
         # get a list of XML tags from the document and print each one
         sentences = doc.getElementsByTagName("sentence")
-        i +=1
+      
         for sentence in sentences:
                 tokens = sentence.getElementsByTagName("token")
                 sentence_string = ""
@@ -54,17 +51,12 @@ def get_dataset(folder,t="word", test_size=0.25):
                 text += sentence_string
         #ended iterating sentences
         text =  exercise1.preprocess(text)
-        if i <= (size_dataset-index_test): 
-             train_set.append(text)
-                
-        elif(i > size_dataset - index_test):
-             if key in test_set:
-                test_set[key].append(text)
-             else:
-                test_set[key] = [text]
-                    
-      
-    return test_set, train_set
+        #add dictionary. key is name of file.
+        docs[key] = text
+        
+        test_set[key] = [text]
+
+    return docs.values(), test_set
        
     
     
@@ -97,6 +89,8 @@ def json_references():
             
     return data
 
+
+    
 def average_precision_score(y_true, y_pred, no_relevant_collection):
     nr_relevants = 0
     i = 0
@@ -118,32 +112,16 @@ def mean_average_precision_score(ap, nr_queries):
     sum_all_ap = np.sum(ap)
     return sum_all_ap/nr_queries
 
-def sentence_preprocess(phrases):
-    candidates =[]
-    for phrase in phrases:  
-        phrase = phrase.lower()
-        #Remove puntuation, except hifen
-        remove = string.punctuation
-        remove = remove.replace("-", "") # don't remove hyphens
-        pattern = r"[{}]".format(remove) # create the pattern
-        phrase = re.sub(pattern, "", phrase)
-        
-        phrase = re.sub(r'[^\D]'  ,'',phrase)
-        phrase = re.sub(r'[\n]',' ', phrase)
-        candidates.append(phrase)
-        
-    return candidates
-
-
 def main():
-    test_set, train_set = get_dataset("train",t="lemma", test_size=0.25)
+    docs, test_set = get_dataset("train",t="lemma", test_size=5)
     true_labels = json_references()
     
     precisions = list()
     precisions = np.array(precisions)
     all_ap = list()
    
-    vectorizer_tfidf = exercise1.tf_idf_train(train_set)
+    vectorizer_tfidf = exercise1.tf_idf_train(docs)
+    """
     for key, doc in test_set.items():
             print(">>>>doc to be tested", key)
             testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
@@ -160,6 +138,21 @@ def main():
         
             ap = average_precision_score(y_true, y_pred, len(y_true))
             all_ap.append(ap)
+    """
+    key = "C-76"
+    doc = test_set[key]
+    print(">>>>doc to be tested", key)
+    testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
+    y_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
+    print(">>>y_pred", y_pred)
+    y_true = true_labels[key]
+    print(">>>y_true", y_true)
+    #print precision, recall per individual document
+    precision_5 = precision_score(y_true, y_pred, average='micro')
+    print(">>> precision score", precision_5)
+    print(">>> recall score", recall_score(y_true, y_pred, average='micro'))
+    print(">>> f1 score", f1_score(y_true, y_pred, average='micro'))
+    print(">>> average precision score" )
             
   
     #GLOBAL        
