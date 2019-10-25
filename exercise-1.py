@@ -24,23 +24,52 @@ def get_20_news_group(size_train):
     
     return train.data[:30], [test.data[0]]
 
-#Tokanizes set train and test doc by sentence
+def preprocess(text):
+    text = text.lower()
+    #TODO: esta coisa esta a dar passar hifens sem ser entre palavras...
+    #Remove puntuation, except hifen
+    remove = string.punctuation
+    remove = remove.replace("-", "") # don't remove hyphens
+    pattern = r"[{}]".format(remove) # create the pattern
+    text = re.sub(pattern, "", text)
+            
+    text = re.sub(r'[^\D]'  ,'',text)
+    text = re.sub(r'[\n]',' ', text)
+    
+    return text
+def generate_clauses(docs):
+    clauses = list()
+    for doc in docs:
+        #to generate bigrams/trigrams
+        phrases = nltk.sent_tokenize(doc)
+        clauses = clauses + phrases
+    return clauses
+
+def generate_ngrams(clauses, min_ngrams, max_ngrams):
+    vocab = list()
+    for clause in clauses:
+        clauses_tokenized = nltk.word_tokenize(clause)
+        vocab += clauses_tokenized
+        for n in range(min_ngrams,max_ngrams+1):
+            ngrams = list(nltk.ngrams(clauses_tokenized, n))
+            for ngram in ngrams:
+                group = " ".join(ngram)
+                vocab.append(group)
+    print(">>>vocab len", vocab)
+    
+    return set(vocab)
+
+    
+#Tokenizes set train and test doc by sentence
 #calls: sentence_preprocess, tf_idf_train, tf_idf_test and calc_prediction
 #@input:train set and doc test
 #@return: set of keyphrases 
 def tf_idf(train, test):
-    candidates_train = list()
-    candidates_tokanize_train = list()
-    candidates_tokanize_test = list()
-    result = list()
-    
+    for i in range(0,len(train)):
+        train[i] = preprocess(train[i])
+  
     #TRAIN
-    for doc in train:
-        phrases = nltk.sent_tokenize(doc)
-        candidates_tokanize_train = sentence_preprocess(phrases)
-        candidates_train = candidates_train + candidates_tokanize_train
-            
-    vectorizer_tfidf = tf_idf_train(candidates_train)   
+    vectorizer_tfidf = tf_idf_train(train)   
     
     #TEST
     phrases = nltk.sent_tokenize(test[0])
@@ -48,7 +77,7 @@ def tf_idf(train, test):
     test_vector = tf_idf_test(vectorizer_tfidf, candidates_tokanize_test)
     
     keys = calc_prediction(test_vector, vectorizer_tfidf)
-   
+    
     return keys
     
 #cleaning each sentence
@@ -74,16 +103,48 @@ def sentence_preprocess(phrases):
 #Creates vectorizer and fits it to the train set
 #@input:train set already pre-processed 
 #@return: vectorizer 
-def tf_idf_train(candidates_train, vocabulary=[]):
-     #Learn the vocabulary dictionary and return term-document matrix
-    if(vocabulary == []):
-        vectorizer_tfidf = TfidfVectorizer(use_idf = True, analyzer = 'word', ngram_range=(1, 3), stop_words = 'english')
-        vectorizer_tfidf.fit_transform(candidates_train)
-    else:
-        vectorizer_tfidf = TfidfVectorizer(vocabulary=vocabulary, use_idf = True, analyzer = 'word', ngram_range=(1, 3), stop_words = 'english')
-        vectorizer_tfidf.fit_transform(candidates_train)
+def tf_idf_train(train, vocab=[]):
+    if(vocab == []):
+        unigrams = list()
+        bigrams = list()
+        clauses = list()
+        words = list()
         
-    return vectorizer_tfidf
+        #Learn the vocabulary dictionary and return term-document matrix
+        for doc in train:
+            #to generate bigrams/trigrams
+            phrases = nltk.sent_tokenize(doc)
+            clauses = clauses + phrases
+            
+        for clause in clauses:
+            clauses_tokenized = nltk.word_tokenize(clause)
+            bigrams = list(nltk.ngrams(clauses_tokenized,2))
+            trigrams = list(nltk.ngrams(clauses_tokenized,3))
+            for bigram in bigrams:
+                group = " ".join(bigram)
+                words.append(group)
+            for trigram in trigrams:
+                group = " ".join(bigram)
+                words.append(group)
+                
+      
+        #to generate unigrams
+        unigrams = unigrams + nltk.word_tokenize(doc)
+    
+        vocabulary = list(set(words)) + list(set(unigrams))
+        
+        
+       
+        vectorizer_tfidf = TfidfVectorizer(vocabulary=vocabulary, use_idf = True, analyzer = 'word', ngram_range=(1,3), stop_words = 'english')
+        vectorizer_tfidf.fit_transform(train)
+            
+        return vectorizer_tfidf
+    else:
+        vectorizer_tfidf = TfidfVectorizer(vocabulary=vocab, use_idf = True, analyzer = 'word', ngram_range=(1,3), stop_words = 'english')
+        vectorizer_tfidf.fit_transform(train)
+            
+        return vectorizer_tfidf
+        
 
 #applies the learned vocabulary to the test doc
 #@input:vectorizer and test tokanized
@@ -97,13 +158,15 @@ def tf_idf_test(vectorizer_tfidf, candidates_tokanize_test):
 def tf_idf_scores(test_vector, feature_names,chars_or_words="words"):
 
     test_vector = test_vector.toarray()
+   
     #count = 0
     for i in range(0, test_vector.shape[0]):
         for j in range(0, test_vector.shape[1]):
             if test_vector[i,j] != 0:
                 #count += 1
                 if chars_or_words == 'chars':
-                    test_vector[i,j] = test_vector[i,j] * len(feature_names[j])     
+                    test_vector[i,j] = test_vector[i,j] * len(feature_names[j])   
+                 
                     
                 elif chars_or_words == 'words':
                     test_vector[i,j] =  test_vector[i,j] * len(feature_names[j].split())

@@ -11,7 +11,7 @@ import re
 import string
 exercise1 = __import__('exercise-1')
 """
-Process XML file.
+Process XML file. Preprocesses text
 Arguments:
 token (optional): must be "word" or "lemma"
 Returns:
@@ -33,8 +33,10 @@ def get_dataset(folder,t="word", test_size=0.25):
     size_dataset = len(files)
     index_test = size_dataset*test_size
     test_set = dict()
+   
     
     for f in files[:30]:
+        text = str()
         base_name=os.path.basename(f)
         key = os.path.splitext(base_name)[0]
         doc = xml.dom.minidom.parse(f)
@@ -49,17 +51,17 @@ def get_dataset(folder,t="word", test_size=0.25):
                     word = token.getElementsByTagName(t)[0].firstChild.data  
                     sentence_string = sentence_string + " " + word
                 #ended iterating tokens from sentence
-                #GENERATE CLAUSES
-                clauses_list = sentence_string.split(",")
-                for clause in clauses_list:
-                    if i <= (size_dataset-index_test):    
-                        train_set.append(clause)
+                text += sentence_string
+        #ended iterating sentences
+        text =  exercise1.preprocess(text)
+        if i <= (size_dataset-index_test): 
+             train_set.append(text)
                 
-                    elif(i > size_dataset - index_test):
-                        if key in test_set:
-                            test_set[key].append(clause)
-                        else:
-                            test_set[key] = [clause]
+        elif(i > size_dataset - index_test):
+             if key in test_set:
+                test_set[key].append(text)
+             else:
+                test_set[key] = [text]
                     
       
     return test_set, train_set
@@ -137,22 +139,15 @@ def main():
     test_set, train_set = get_dataset("train",t="lemma", test_size=0.25)
     true_labels = json_references()
     
-    for sentence in train_set:
-        sentence = sentence_preprocess(sentence)
-    
-        
     precisions = list()
     precisions = np.array(precisions)
     all_ap = list()
    
     vectorizer_tfidf = exercise1.tf_idf_train(train_set)
     for key, doc in test_set.items():
-            doc = sentence_preprocess(doc)
-            y_pred = list()
             print(">>>>doc to be tested", key)
             testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
-            y_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf )
-
+            y_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
             print(">>>y_pred", y_pred)
             y_true = true_labels[key]
             print(">>>y_true", y_true)
@@ -161,7 +156,7 @@ def main():
             print(">>> precision score", precision_5)
             print(">>> recall score", recall_score(y_true, y_pred, average='micro'))
             print(">>> f1 score", f1_score(y_true, y_pred, average='micro'))
-            print(">>> average precision score", )
+            print(">>> average precision score" )
         
             ap = average_precision_score(y_true, y_pred, len(y_true))
             all_ap.append(ap)

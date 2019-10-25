@@ -11,16 +11,18 @@ import re
 import string
 def preprocess_word(word):
     word = word.lower()
-    #Remove puntuation, except hifen
-    remove = string.punctuation
-    remove = remove.replace("-", "") # don't remove hyphens
-    pattern = r"[{}]".format(remove) # create the pattern
-    word = re.sub(pattern, "", word)
-        
-    word = re.sub(r'[^\D]'  ,'',word)
-    word = re.sub(r'[\n]','', word)
+  
     return word
-        
+
+def is_valid(word):
+    ponctuation = r"[{}]".format(string.punctuation) 
+    if re.match(ponctuation, word) or re.match(r'[^\D]', word) or re.match(r'[\n]', word):
+        return False
+    else:
+        return True
+   
+  
+       
 #
 #Returns: list of tuples where each corresponds to (word, tag). Each word
 # is from train set
@@ -54,9 +56,11 @@ def get_tagged(t="word"):
                 tokens = sentence.getElementsByTagName("token")
                 for token in tokens:
                     word = token.getElementsByTagName(t)[0].firstChild.data
-                    tag = token.getElementsByTagName("POS")[0].firstChild.data 
-                    word_tag_pair = (word,tag)
-                    word_tag_pairs.append(word_tag_pair)
+                    #don't consider if stop words or punctuation
+                    if(is_valid(word)):
+                        tag = token.getElementsByTagName("POS")[0].firstChild.data 
+                        word_tag_pair = (word,tag)
+                        word_tag_pairs.append(word_tag_pair)
     #END iterating train set
     #Generate valid grams
     grammar = r'KT: {(<JJ>* <NN.*>+ <IN>)? <JJ>* <NN.*>+}'
@@ -82,14 +86,13 @@ def main():
      
      true_labels = exercise2.json_references()
      valid_grams = get_tagged(t="lemma")
-     vectorizer_tfidf = exercise1.tf_idf_train(train_set, vocabulary=valid_grams)
+     vectorizer_tfidf = exercise1.tf_idf_train(train_set, vocab=valid_grams)
      
      #for key, doc in test_set.items():
      key = "C-75"
      print(">>>>doc to be tested", key)
      doc = test_set[key]
      y_pred = list()
-     doc = exercise2.sentence_preprocess(doc)
      testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
      y_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
      
