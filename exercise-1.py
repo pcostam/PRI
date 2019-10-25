@@ -31,7 +31,7 @@ def preprocess(text):
     remove = remove.replace("-", "") # don't remove hyphens
     pattern = r"[{}]".format(remove) # create the pattern
     text = re.sub(pattern, "", text)
-    text = re.sub(r'(?<!(\w))[-]+(?!(\w)+)', "", text)
+    text = re.sub(r'(?!>[\w ]+)-{2,}(?=(?:[\w ]+|$))', "", text)
     text = re.sub(r'[^\D]'  ,'',text)
     text = re.sub(r'[\n]',' ', text)
     
