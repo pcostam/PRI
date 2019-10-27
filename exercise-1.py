@@ -55,7 +55,7 @@ def generate_ngrams(clauses, min_ngrams, max_ngrams):
             for ngram in ngrams:
                 group = " ".join(ngram)
                 vocab.append(group)
-    print(">>>vocab", vocab)
+    #print(">>>vocab", vocab)
     return list(set(vocab))
 
 #Tokenizes set train and test doc by sentence
@@ -66,6 +66,7 @@ def tf_idf(docs, test):
     for i in range(0,len(docs)):
         docs[i] = preprocess(docs[i])
   
+    
     #TRAIN
     vectorizer_tfidf = tf_idf_train(docs)   
     
@@ -80,13 +81,23 @@ def tf_idf(docs, test):
 #Creates vectorizer and fits it to the docs
 #@input:train set already pre-processed 
 #@return: vectorizer 
-def tf_idf_train(docs, vocab=[]):
-        if vocab == []:
-            clauses = generate_clauses(docs)
-            vocab = generate_ngrams(clauses, 2, 3)
+def tf_idf_train(docs):
+        #if vocab == []:
+            #clauses = generate_clauses(docs)
+            #vocab = generate_ngrams(clauses, 2, 3)
       
-        vectorizer_tfidf = TfidfVectorizer(vocabulary=vocab, use_idf = True, analyzer = 'word', ngram_range=(1,3), stop_words = 'english')
+        vectorizer_tfidf = TfidfVectorizer(use_idf = True, 
+                                           analyzer = 'word', 
+                                           ngram_range=(1,3), 
+                                           stop_words = 'english',
+                                           token_pattern=r"(?u)\b[a-zA-Z][a-zA-Z-]*[a-zA-Z]\b", 
+                                           lowercase = True,
+                                           max_df =3)
         vectorizer_tfidf.fit_transform(docs)
+        
+        for i in vectorizer_tfidf.vocabulary_:
+            if i == 'point-distribution index':
+                print("ESTOU AQUI A VIVER!!")
          
         return vectorizer_tfidf
   
