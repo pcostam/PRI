@@ -1,19 +1,13 @@
 # -*- coding: utf-8 -*-
-
 from sklearn.feature_extraction.text import TfidfVectorizer 
 from sklearn.datasets import fetch_20newsgroups
 from scipy import sparse
-import string
-import nltk 
-import re
-
-#load stopwords to set
-stop_words = set(nltk.corpus.stopwords.words("english"))
 
 def main():
-    docs,test = get_20_news_group(30)
+    docs,test = get_20_news_group(18000)
     keys = tf_idf(docs,test)
-    print(keys)
+    
+    return keys
 
 #loads train set and test doc
 #@input:size disered for the docs set
@@ -21,91 +15,44 @@ def main():
 def get_20_news_group(size):
     docs = fetch_20newsgroups(subset = 'all') 
     doc_test  = fetch_20newsgroups(subset = 'test', shuffle=False)
-    return docs.data[:size + 1], [doc_test.data[0]]
-
-def preprocess(text):
-    text = text.lower()
-  
-    #Remove puntuation, except hifen
-    remove = string.punctuation
-    remove = remove.replace("-", "") # don't remove hyphens
-    pattern = r"[{}]".format(remove) # create the pattern
-    text = re.sub(pattern, "", text)
-    text = re.sub(r'(?!>[\w ]+)-{2,}(?=(?:[\w ]+|$))', "", text)
-    text = re.sub(r'[^\D]'  ,'',text)
-    text = re.sub(r'[\n]',' ', text)
     
-    return text
-
-def generate_clauses(docs):
-    clauses = list()
-    for doc in docs:
-        #to generate bigrams/trigrams
-        phrases = nltk.sent_tokenize(doc)
-        clauses = clauses + phrases
-    return clauses
-
-def generate_ngrams(clauses, min_ngrams, max_ngrams):
-    vocab = list()
-    for clause in clauses:
-        clauses_tokenized = nltk.word_tokenize(clause)
-        vocab += clauses_tokenized
-        for n in range(min_ngrams,max_ngrams+1):
-            ngrams = list(nltk.ngrams(clauses_tokenized, n))
-            for ngram in ngrams:
-                group = " ".join(ngram)
-                vocab.append(group)
-    #print(">>>vocab", vocab)
-    return list(set(vocab))
+    return docs.data[:size + 1], [doc_test.data[0]]
 
 #Tokenizes set train and test doc by sentence
 #calls: sentence_preprocess, tf_idf_train, tf_idf_test and calc_prediction
 #@input:train set and doc test
 #@return: set of keyphrases 
 def tf_idf(docs, test):
-    for i in range(0,len(docs)):
-        docs[i] = preprocess(docs[i])
-  
-    
     #TRAIN
-    vectorizer_tfidf = tf_idf_train(docs)   
+    vectorizer_tfidf = tf_idf_train(docs, 2)   
     
     #TEST
     test_vector = tf_idf_test(vectorizer_tfidf, test)
-    
     keys = calc_prediction(test_vector, vectorizer_tfidf)
     
     return keys
 
-
 #Creates vectorizer and fits it to the docs
 #@input:train set already pre-processed 
 #@return: vectorizer 
-def tf_idf_train(docs):
-        #if vocab == []:
-            #clauses = generate_clauses(docs)
-            #vocab = generate_ngrams(clauses, 2, 3)
-      
-        vectorizer_tfidf = TfidfVectorizer(use_idf = True, 
+def tf_idf_train(docs, maxdf):      
+    vectorizer_tfidf = TfidfVectorizer(use_idf = True, 
                                            analyzer = 'word', 
                                            ngram_range=(1,3), 
                                            stop_words = 'english',
                                            token_pattern=r"(?u)\b[a-zA-Z][a-zA-Z-]*[a-zA-Z]\b", 
                                            lowercase = True,
-                                           max_df =3)
-        vectorizer_tfidf.fit_transform(docs)
+                                           max_df =maxdf)
         
-        for i in vectorizer_tfidf.vocabulary_:
-            if i == 'point-distribution index':
-                print("ESTOU AQUI A VIVER!!")
-         
-        return vectorizer_tfidf
+    vectorizer_tfidf.fit_transform(docs)
+                 
+    return vectorizer_tfidf
   
-
 #applies the learned vocabulary to the test doc
 #@input:vectorizer and test tokanized
 #@return: vectorizer 
 def tf_idf_test(vectorizer_tfidf, doc_test):
+    
     return vectorizer_tfidf.transform(doc_test)
 
 #computes tf-idf final scores according to it len 
@@ -126,6 +73,7 @@ def tf_idf_scores(test_vector, feature_names,chars_or_words="words", scale_facto
                     test_vector[i,j] =  test_vector[i,j] * len(feature_names[j].split())*scale_factor
     
     test_vector = sparse.csr_matrix(test_vector)
+    
     return test_vector
 
 #sortes matrix with tf-idf final scores
@@ -133,6 +81,7 @@ def tf_idf_scores(test_vector, feature_names,chars_or_words="words", scale_facto
 #@return: sorted nonzero entries of matrix with tf-idf final scores
 def sort_terms(test_vector):
     tuples = zip(test_vector.col, test_vector.data)
+    
     return sorted(tuples, key=lambda x: (x[1], x[0]), reverse=True)
 
 #extracts keyphrases 
@@ -141,16 +90,13 @@ def sort_terms(test_vector):
 def extract_keyphrases(feature_names ,sorted_terms):
     sorted_terms = sorted_terms[0:5]
   
-  
     keyphrases = list()
     results= dict()
     # word index and corresponding tf-idf score
     for idx, score in sorted_terms:
         results[feature_names[idx]] = score
         keyphrases.append(feature_names[idx])
-    
 
-    
     return keyphrases
 
 #computes predictions of top 5 keyphrases
