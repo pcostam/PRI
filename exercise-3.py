@@ -32,6 +32,7 @@ class Collection:
             self.terms[name].inc_no_docs()
             
         elif (name in self.documents[document_name].vocabulary.keys()):
+             
               self.documents[document_name].add_term(name)
 
         return self.terms[name]
@@ -131,15 +132,16 @@ class BM25:
         self.no_terms = len(terms)
         self.tfidf_matrix = lil_matrix((self.no_docs, self.no_terms), dtype=int)
      
-    def TF(self, freq_term_i, len_doc_j, k1=1.5, b=0.75):
+    def TF(self, freq_term_i, len_doc_j, k1=1.2, b=0.75):
         upper = freq_term_i * (k1 + 1)
         below = freq_term_i + k1 * (1 - b + b*(abs(len_doc_j)/self.DocAvgLen))
         
         return upper/below
     def IDF(self, no_docs_with_term_i): 
-        return math.log((self.no_docs - no_docs_with_term_i + 0.5)/(no_docs_with_term_i + 0.5))
+        e = math.exp(1)
+        return math.log((self.no_docs - no_docs_with_term_i + 0.5)/(no_docs_with_term_i + 0.5), e)
     
-    def TFIDF(self, freq_term_i, len_doc_j, no_docs_with_term_i, k1=1.5, b=0.75):
+    def TFIDF(self, freq_term_i, len_doc_j, no_docs_with_term_i):
         return self.TF(freq_term_i, len_doc_j)*self.IDF(no_docs_with_term_i)
     
     def update_matrix_tfidf(self):
@@ -151,7 +153,6 @@ class BM25:
                 freq_term_i = doc.frequence_term(term)
                 tfidf = self.TFIDF(freq_term_i, len_doc_j, no_docs_with_term_i)
                 self.tfidf_matrix[doc.index, term.index] = tfidf
-       
     
     def get_top_5(self, test_vector):
         tuples = zip(test_vector.col, test_vector.data)
@@ -213,7 +214,7 @@ class BM25F(BM25):
             total_sum += upper/below
         return total_sum
     
-    def TFIDF(self, doc, term, no_docs_with_term_i, k1=1.5, b=0.75):
+    def TFIDF(self, doc, term, no_docs_with_term_i, k1=1.2, b=0.75):
         return self.TF(doc, term)*self.IDF(no_docs_with_term_i)
     
     def update_matrix_tfidf(self):
@@ -237,35 +238,63 @@ def is_valid(word):
         return False
     else:
         return True
-   
+ 
+def parse(tagged_words, collection, document, zone=None):
+    grammar = r'KT: {(<JJ>* <NN.*>+ <IN>)? <JJ>* <NN.*>+}'
+    cp = RegexpParser(grammar)
+ 
+
+    parsed_word_tag = cp.parse(tagged_words)
+     
   
-def parse_word_tags(grammar, word_tag_pairs, collection, document, zone=None):
-        #Generate valid grams - vocabulary for each document
-        cp = RegexpParser(grammar)
-       
-        from nltk.chunk import tree2conlltags
-        from itertools import chain, groupby
-       
-        all_tag = chain.from_iterable([tree2conlltags(cp.parse(tag)) for tag in [word_tag_pairs]])
-      
-        candidates = list()
-        for key, group in groupby(all_tag, lambda tag: tag[2] != 'O'):
-            candidate = ' '.join([word for (word, pos, chunk) in group])
-            if key is True and len(candidate.split()) <= 3:
-                candidates.append(candidate)
-       
+            
+    for child in parsed_word_tag:
+            if isinstance(child, Tree):               
+                if child.label() == 'KT':
+                    group_words = []
+                    size_child = len(child)
+                    if size_child <= 3:
+                        for num in range(size_child):
+                                group_words.append(child[num][0])
+                        n_gram = " ".join(group_words)
+                        n_gram = exercise1.preprocess(n_gram)
+                        collection.add_term(n_gram, document.doc_name)
+                        if zone != None:
+                             zone.add_term(n_gram)
+  
     
-        if zone != None:
+                        
+def candidates(tagged_words, collection, document, zone=None):
+    bigrams = list()
+    trigrams = list()
+    
+    if zone != None:
             document.add_zone(zone)
             collection.add_zone(zone)
+    
+    
+    for i  in range(0, len(tagged_words)):
+        unigram = tagged_words[i][0]
+        unigram = exercise1.preprocess(unigram)
+        collection.add_term(unigram, document.doc_name)
+        if zone != None:
+            zone.add_term(unigram)
+        
+        if(i + 1 < len(tagged_words)):
+            bigram = [tagged_words[i], tagged_words[i + 1]]
+            bigrams.append(bigram)
+          
+        if(i + 2 < len(tagged_words)):
+            trigram = [tagged_words[i], tagged_words[i + 1], tagged_words[i + 2]]
+            trigrams.append(trigram)
             
-        for candidate in candidates: 
-            candidate = exercise1.preprocess(candidate)
-            collection.add_term(candidate, document.doc_name)
-            if zone != None:
-                zone.add_term(candidate)
-      
- 
+    
+    for gram in trigrams:
+        parse(gram, collection, document, zone=zone)
+    for gram in bigrams:
+        parse(gram, collection, document, zone=zone)
+        
+            
 def xml_tags_document(sentences, document, t="lemma"):
         word_tag_pairs = list()
         # get a list of XML tags from the document and print each one
@@ -276,6 +305,7 @@ def xml_tags_document(sentences, document, t="lemma"):
                     document.set_size_doc()
                     #don't consider if stop words or punctuation
                     if(is_valid(word)):
+                    
                         tag = token.getElementsByTagName("POS")[0].firstChild.data 
                         word_tag_pair = (word, tag)
                         word_tag_pairs.append(word_tag_pair) 
@@ -307,7 +337,7 @@ def get_tagged(t="word", has_zones=False):
         key = os.path.splitext(base_name)[0]
         document = collection.add_document(key) 
         sentences = text.getElementsByTagName("sentence")
-        grammar = r'KT: {(<JJ>* <NN.*>+ <IN>)? <JJ>* <NN.*>+}'
+     
         
         if has_zones == True:
             text_zone_1 = sentences[:10]
@@ -322,10 +352,11 @@ def get_tagged(t="word", has_zones=False):
   
             for zone,text_zone in zip(zones, text_zones): 
                 word_tag_pairs = xml_tags_document(text_zone, document)
-                parse_word_tags(grammar, word_tag_pairs, collection, document, zone=zone)
+                candidates(word_tag_pairs, collection, document, zone=zone)
+         
         else:
              word_tag_pairs = xml_tags_document(sentences, document)
-             parse_word_tags(grammar, word_tag_pairs, collection, document)
+             candidates(word_tag_pairs, collection, document)
          
       
     #END iterating docs
@@ -347,13 +378,19 @@ def main():
      for term in terms:
          if(term.name == "adaptive resource management"):
              print("ALSO TRUE")
+             print("no_docs", term.no_docs)
+             print("count", document.get_vocabulary()["adaptive resource management"])
          if(term.name == "adaptive resource"):
              print("second keyword")
          if(term.name == "resource reservation mechanism"):
              print("third keyword")
              print("no_docs", term.no_docs)
              print("count", document.get_vocabulary()["resource reservation mechanism"])
+         if(term.name == "resource"):
+             print("fourth keyword")
+             print("count", document.get_vocabulary()["resource"])
      
+     print("fim")
      heuristic = BM25(list(collection.get_documents_values()), list(collection.get_terms_values()))
      heuristic.update_matrix_tfidf()
      doc_test = list(collection.get_documents_values())[0]
