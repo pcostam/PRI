@@ -11,7 +11,6 @@ import re
 import string
 import math
 from scipy.sparse import lil_matrix
-
 class Collection:
     def __init__(self):
         self.documents = dict()
@@ -20,19 +19,19 @@ class Collection:
         self.unique_index_doc = 0
         self.unique_index_term = 0
         
-    def add_term(self, name, document_name):           
+    def add_term(self, name, document_name):  
+     
         if name not in self.terms.keys():
             self.terms[name] = Term(name, self.unique_index_term)
             self.terms[name].inc_no_docs()
             self.unique_index_term += 1
             self.documents[document_name].add_term(name)
             
-        elif (name in self.terms.keys()) and (name not in self.documents[document_name].vocabulary.keys()):
+        elif(name in self.terms.keys()) and (name not in self.documents[document_name].vocabulary.keys()):
             self.documents[document_name].add_term(name)
             self.terms[name].inc_no_docs()
             
-        elif (name in self.documents[document_name].vocabulary.keys()):
-             
+        elif(name in self.documents[document_name].vocabulary.keys()):
               self.documents[document_name].add_term(name)
 
         return self.terms[name]
@@ -62,7 +61,7 @@ class Collection:
         return self.zones.append(zone)
         
       
-        
+count_x = 1      
 class Document:
     def __init__(self, doc_name,index, vocabulary=""):
         self.doc_name = doc_name
@@ -72,6 +71,7 @@ class Document:
         #list of object zone
         self.zones = list()
     def add_term(self, new_term):
+        global count_x
         """
         Add term. Count occurences, inside document
         """
@@ -81,6 +81,8 @@ class Document:
             
     
         else:
+            if(new_term == "resource" and self.doc_name == "C-41"):
+                count_x += 1
             self.vocabulary[new_term] += 1
     #frequence term i in doc j - fi,j
     def frequence_term(self, term):
@@ -130,16 +132,15 @@ class BM25:
         self.terms = terms
         self.no_docs = len(docs)
         self.no_terms = len(terms)
-        self.tfidf_matrix = lil_matrix((self.no_docs, self.no_terms), dtype=int)
+        self.tfidf_matrix = lil_matrix((self.no_docs, self.no_terms), dtype=float)
      
     def TF(self, freq_term_i, len_doc_j, k1=1.2, b=0.75):
         upper = freq_term_i * (k1 + 1)
         below = freq_term_i + k1 * (1 - b + b*(abs(len_doc_j)/self.DocAvgLen))
-        
+    
         return upper/below
     def IDF(self, no_docs_with_term_i): 
-        e = math.exp(1)
-        return math.log((self.no_docs - no_docs_with_term_i + 0.5)/(no_docs_with_term_i + 0.5), e)
+        return math.log(1 + (self.no_docs - no_docs_with_term_i + 0.5)/(no_docs_with_term_i + 0.5))
     
     def TFIDF(self, freq_term_i, len_doc_j, no_docs_with_term_i):
         return self.TF(freq_term_i, len_doc_j)*self.IDF(no_docs_with_term_i)
@@ -153,11 +154,13 @@ class BM25:
                 freq_term_i = doc.frequence_term(term)
                 tfidf = self.TFIDF(freq_term_i, len_doc_j, no_docs_with_term_i)
                 self.tfidf_matrix[doc.index, term.index] = tfidf
-    
+     
     def get_top_5(self, test_vector):
         tuples = zip(test_vector.col, test_vector.data)
-        tuples_terms = sorted(tuples, key=lambda x: (x[1], x[0]), reverse=True)
+        print("test_vector col", test_vector.col)
+        tuples_terms = sorted(tuples, key=lambda x: x[1], reverse=True)
         sorted_terms = tuples_terms[0:5]
+        print("sorted_terms", sorted_terms)
         keyphrases = []
         for idx, score in sorted_terms:
             keyphrases.append(self.terms[idx].name)
@@ -200,7 +203,7 @@ class BM25F(BM25):
         self.terms = terms
         self.no_docs = len(docs)
         self.no_terms = len(terms)
-        self.tfidf_matrix = lil_matrix((self.no_docs, self.no_terms), dtype=int)
+        self.tfidf_matrix = lil_matrix((self.no_docs, self.no_terms), dtype=float)
         
     def TF(self, doc, term, k1=1.5):
         total_sum = 0
@@ -224,6 +227,7 @@ class BM25F(BM25):
                 no_docs_with_term_i = term.get_no_documents()
                 tfidf = self.TFIDF(doc, term, no_docs_with_term_i)
                 self.tfidf_matrix[doc.index, term.index] = tfidf
+   
     
 def preprocess_word(word):
     word = word.lower()
@@ -246,14 +250,13 @@ def parse(tagged_words, collection, document, zone=None):
 
     parsed_word_tag = cp.parse(tagged_words)
      
-  
             
     for child in parsed_word_tag:
             if isinstance(child, Tree):               
                 if child.label() == 'KT':
                     group_words = []
                     size_child = len(child)
-                    if size_child <= 3:
+                    if size_child == 2 or size_child == 3:
                         for num in range(size_child):
                                 group_words.append(child[num][0])
                         n_gram = " ".join(group_words)
@@ -262,12 +265,11 @@ def parse(tagged_words, collection, document, zone=None):
                         if zone != None:
                              zone.add_term(n_gram)
   
-    
-                        
+                  
 def candidates(tagged_words, collection, document, zone=None):
     bigrams = list()
     trigrams = list()
-    
+
     if zone != None:
             document.add_zone(zone)
             collection.add_zone(zone)
@@ -276,6 +278,7 @@ def candidates(tagged_words, collection, document, zone=None):
     for i  in range(0, len(tagged_words)):
         unigram = tagged_words[i][0]
         unigram = exercise1.preprocess(unigram)
+        
         collection.add_term(unigram, document.doc_name)
         if zone != None:
             zone.add_term(unigram)
@@ -357,7 +360,7 @@ def get_tagged(t="word", has_zones=False):
         else:
              word_tag_pairs = xml_tags_document(sentences, document)
              candidates(word_tag_pairs, collection, document)
-         
+       
       
     #END iterating docs
     
@@ -372,7 +375,7 @@ def main():
      collection = get_tagged(t="lemma", has_zones=False)
      documents = collection.get_documents()
      document = documents["C-41"]
-     
+
      terms = list(collection.get_terms_values())
      
      for term in terms:
@@ -408,6 +411,7 @@ def main():
      heuristic = BM25F(collection.get_zones(), list(collection.get_documents_values()),  list(collection.get_terms_values()))
      heuristic.update_matrix_tfidf()
      doc_test = list(collection.get_documents_values())[0]
+    
      print("TESTING>>>")
      print("doc_test", doc_test.doc_name)
      keyphrases = heuristic.calc_prediction(doc_test)
