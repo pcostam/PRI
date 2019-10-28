@@ -84,131 +84,118 @@ def json_references():
             
     return data
 
-#computes predictions of top 5 keyphrases
-#@input: matrix with tf-idf final scores and vectorizer
-#@return: top 5 keyphrases
-def calc_prediction(test_vector, vectorizer_tfidf, num_known_relevants,scale_factor=1):
-    feature_names = vectorizer_tfidf.get_feature_names()
-    test_vector = exercise1.tf_idf_scores(test_vector.tocoo(), feature_names,chars_or_words="words")
-    
-    #SORT
-    sorted_terms = sort_terms(test_vector.tocoo())
-    keyphrases = extract_keyphrases(feature_names ,sorted_terms, num_known_relevants)
-    
-    return keyphrases
-
-
-#sortes matrix with tf-idf final scores
-#@input: all the nonzero entries of matrix with tf-idf final scores
-#@return: sorted nonzero entries of matrix with tf-idf final scores
-def sort_terms(test_vector):
-    tuples = zip(test_vector.col, test_vector.data)
-    return sorted(tuples, key=lambda x: (x[1], x[0]), reverse=True)
-
-def extract_keyphrases(feature_names ,sorted_terms, num_known_relevants):
-    keyphrases = list()
-    results= dict()
-    
-    sorted_terms = sorted_terms[0:num_known_relevants]
-  
-    # word index and corresponding tf-idf score
-    for idx, score in sorted_terms:
-        results[feature_names[idx]] = score
-        keyphrases.append(feature_names[idx])
-    
-    return keyphrases
-
-def average_precision_score(y_true, y_pred, no_relevant_collection):
+def average_precision_score(y_true, y_pred):
     nr_relevants = 0
     i = 0
-    Ap_at_sum = 0
+    ap_at_sum = 0
+    
     for el in y_pred:
         i += 1
         #is relevant
         if el in y_true:
             nr_relevants += 1
-            Ap_at_sum += nr_relevants/i
-        #if not relevant, count as 0
-
-    return Ap_at_sum/no_relevant_collection
+            ap_at_sum += nr_relevants/i
+        
+        if i == 5 :
+            precision_at_5 = nr_relevants/i
+    
+    #if not relevant, count as 0
+    if nr_relevants == 0:
+        return 0, precision_at_5
+    else:
+        return ap_at_sum/nr_relevants, precision_at_5
 
 #Arguments:
 # ap: numpy array of all average precision scores
 #nr queries: corresponds to the number of documents 
-def mean_average_precision_score(ap, nr_queries):
-    sum_all_ap = np.sum(ap)
-    return sum_all_ap/nr_queries
-
+def global_metrics(ap_or_p5_lst, nr_queries, global_metric):
+    
+    if global_metric == 'mAP':
+        sum_all_ap = np.sum(ap_or_p5_lst)
+        return sum_all_ap/nr_queries
+    
+    elif global_metric == 'mP5':
+        sum_all_p5 = np.sum(ap_or_p5_lst)
+        return sum_all_p5/nr_queries
+    
+    else:
+        return ">>>>WRONG GLOBAL METRIC<<<<"
 #Arguments:
 #Grams predicted and Real grams
 #Prints precision, recall and f1 score per individual document
 def metrics(y_true, y_pred):
     
-    relevant_retrieved = len(list(set(y_pred) & set(y_true)))
+    y_pred_set = set(y_pred)
+    y_true_set = set(y_true)
+    
+    y_intersection = len(y_pred_set.intersection(y_true_set))
     
     #Precision = num grams relevants retrieved / total of grams retrieved
-    precision = relevant_retrieved / len(y_pred)
-    print(">>> precision score", precision)
+    precision = y_intersection / len(y_pred)
+    #print(">>> precision score", precision)
     
     #Recall = num grams relevants retrieved / num relevant grams
-    recall = relevant_retrieved / len(y_true)
-    print(">>> recall score"   , recall)
+    recall = y_intersection / len(y_true)
+    #print(">>> recall score"   , recall)
     
     #F1-measure = 2 * (Precision * Recall )/(Precision + Recall)
-    if(precision + recall != 0):
+    if precision + recall != 0:
         f1_scores = 2 * (precision * recall) / (precision + recall)
-        print(">>> f1 score"       , round(f1_scores, 2))
+        #print(">>> f1 score"   , round(f1_scores, 2))
     else:
-        f1_scores = 0
-        
-    return precision, recall, f1_scores
+        print(">>>>WRONG GLOBAL METRIC<<<<")
     
 def main():
     precisions = list()
     all_ap = list()
+    all_p5 = list()
     
     docs, test_set = get_dataset("train",t="lemma", test_size=5)
     true_labels = json_references()
     
     precisions = np.array(precisions)
     
-    vectorizer_tfidf = exercise1.tf_idf_train(docs)
-    
-    #for key, doc in test_set.items():
-    #    print(">>>>Doc to be tested", key)
-    #    testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
+    #for i in range(2, 100):
         
-    #    y_true = true_labels[key]
-    #    y_pred = calc_prediction(testvec,vectorizer_tfidf, len(y_true))
-    #    print(">>>Predicted", y_pred)
-    #    print(">>>Known Relevant", y_true)
+        #print("INDEX : ", i )
         
-    #    metrics(y_true, y_pred)
+    vectorizer_tfidf = exercise1.tf_idf_train(docs, 17)
+    
+    for key, doc in test_set.items():
+        #print(">>>>Testing document ", key)
+        testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
         
-    #   ap = average_precision_score(y_true, y_pred, len(y_true))
-    #    all_ap.append(ap)
-    
-    key = "C-76"
-    doc = test_set[key]
-    
-    print(">>>>doc to be tested", key)
-    testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
-    
-    y_true = true_labels[key]
-    y_pred = calc_prediction(testvec,vectorizer_tfidf, len(y_true))
-    
-    print(">>>y_pred", y_pred)
-    print(">>>y_true", y_true)
-    
-    metrics(y_true, y_pred)
+        y_true = true_labels[key]
+        y_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
+        #print(">>>Predicted ", y_pred)
+        #print(">>>Known Relevant ", y_true)
+         
+        metrics(y_true, y_pred)
 
-    #GLOBAL        
-    #mean value for the precision@5 evaluation metric
-    #precisions = np.array(precisions)
-    #mean_precision_5 = np.mean(precisions)
-    #print(">>> mean precision@5", mean_precision_5)
-	
-    #mean average precision
-    #all_ap = np.array(all_ap)
-    #mAP = mean_average_precision_score(all_ap,len(test_set.keys()))
-    #print(">>> mean average precision", mAP)
+        ap, p5 = average_precision_score(y_true, y_pred)
+        all_ap.append(ap)
+        all_p5.append(p5)
+        
+    mAP = global_metrics(all_ap, len(test_set.keys()), global_metric = 'mAP')
+    print(">>>Mean average precision ", mAP)
+    
+    mP5 = global_metrics(all_p5, len(test_set.keys()), global_metric = 'mP5')
+    print(">>>Mean average precision@5 ", mP5)
+        
+        #all_ap.clear()
+        #all_p5.clear()
+        #vectorizer_tfidf.vocabulary_.clear()
+    
+    #key = "C-76"
+    #doc = test_set[key]
+        
+    #print(">>>>doc to be tested", key)
+    #testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
+        
+     #y_true = true_labels[key]
+     #y_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
+        
+     #print(">>>y_pred", y_pred)
+     #print(">>>y_true", y_true)
+        
+     #metrics(y_true, y_pred)
