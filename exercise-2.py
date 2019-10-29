@@ -2,12 +2,13 @@
 """
 Exercise 2
 """
+from nltk.stem import PorterStemmer
+import matplotlib.pyplot as plt
 import xml.dom.minidom
-import os
-import json
-from sklearn.metrics import precision_score, recall_score, f1_score
 import numpy as np
-from scipy import sparse
+import json
+import os
+
 exercise1 = __import__('exercise-1')
 """
 Process XML file. Preprocesses text
@@ -16,7 +17,7 @@ token (optional): must be "word" or "lemma"
 Returns:
 a list where each element corresponds to a list(document) containing strings (sentences) 
 """
-def get_dataset(folder,t="word", test_size=5):
+def get_dataset(folder, t="word", test_size =5, stem_or_not_stem = "not stem"):
     path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\" + folder
  
     files = []
@@ -29,6 +30,7 @@ def get_dataset(folder,t="word", test_size=5):
     docs = dict()
     test_set = dict()
     i = 0
+    ps = PorterStemmer()
   
     for f in files:
         i += 1
@@ -45,6 +47,9 @@ def get_dataset(folder,t="word", test_size=5):
                 sentence_string = ""
                 for token in tokens:
                     word = token.getElementsByTagName(t)[0].firstChild.data
+                    if (t == 'word' and stem_or_not_stem == 'stem'):
+                        word = ps.stem(word)
+                        
                     sentence_string = sentence_string + " " + word
                 #ended iterating tokens from sentence
                 text += sentence_string
@@ -61,11 +66,15 @@ def get_dataset(folder,t="word", test_size=5):
 Returns dictionary with only n-grams where n < 4. Key is filename and value is list containing lists 
 with keyphrases. 
 """
-def json_references():
-    path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\references"
-    filename = os.path.join(path,"train.combined.json")
+def json_references(stem_or_not_stem = 'not stem'):
     data = dict()
     
+    path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\references"
+    if stem_or_not_stem == 'not stem':
+        filename = os.path.join(path,"train.combined.json")
+    elif stem_or_not_stem == 'stem':
+        filename = os.path.join(path,"train.combined.stem.json")
+        
     with open(filename) as f:    
         data = json.load(f)
         
@@ -132,34 +141,39 @@ def metrics(y_true, y_pred):
     
     #Precision = num grams relevants retrieved / total of grams retrieved
     precision = y_intersection / len(y_pred)
-    #print(">>> precision score", precision)
+    print(">>> precision score", precision)
     
     #Recall = num grams relevants retrieved / num relevant grams
     recall = y_intersection / len(y_true)
-    #print(">>> recall score"   , recall)
+    print(">>> recall score"   , recall)
     
     #F1-measure = 2 * (Precision * Recall )/(Precision + Recall)
     if precision + recall != 0:
         f1_scores = 2 * (precision * recall) / (precision + recall)
-        #print(">>> f1 score"   , round(f1_scores, 2))
+        print(">>> f1 score"   , f1_scores)
     else:
-        print(">>>>WRONG GLOBAL METRIC<<<<")
+        print(">>>>WRONG METRIC<<<<")
+    
+    return precision, recall
     
 def main():
     precisions = list()
     all_ap = list()
     all_p5 = list()
+    precision_curve_plot = list()
+    recall_curve_plot = list()
     
-    docs, test_set = get_dataset("train",t="lemma", test_size=5)
-    true_labels = json_references()
+    docs, test_set = get_dataset("train", t="word", stem_or_not_stem = "stem",
+                                 test_size=5)
     
+    true_labels = json_references(stem_or_not_stem = "stem")
     precisions = np.array(precisions)
     
-    #for i in range(2, 100):
+    #for i in range(5, 100, 5):
         
         #print("INDEX : ", i )
-        
-    vectorizer_tfidf = exercise1.tf_idf_train(docs, 17)
+    
+    vectorizer_tfidf = exercise1.tf_idf_train(docs, 30)
     
     for key, doc in test_set.items():
         #print(">>>>Testing document ", key)
@@ -170,8 +184,10 @@ def main():
         #print(">>>Predicted ", y_pred)
         #print(">>>Known Relevant ", y_true)
          
-        metrics(y_true, y_pred)
-
+        precision, recall = metrics(y_true, y_pred)
+        precision_curve_plot.append(precision)
+        recall_curve_plot.append(recall)
+        
         ap, p5 = average_precision_score(y_true, y_pred)
         all_ap.append(ap)
         all_p5.append(p5)
@@ -180,12 +196,13 @@ def main():
     print(">>>Mean average precision ", mAP)
     
     mP5 = global_metrics(all_p5, len(test_set.keys()), global_metric = 'mP5')
-    print(">>>Mean average precision@5 ", mP5)
-        
-        #all_ap.clear()
-        #all_p5.clear()
-        #vectorizer_tfidf.vocabulary_.clear()
+    print(">>>Mean precision@5 ", mP5)
     
+    plot_precision_recall(precision_curve_plot, recall_curve_plot)
+    
+    #all_ap.clear()
+    #all_p5.clear()
+
     #key = "C-76"
     #doc = test_set[key]
         
@@ -199,3 +216,12 @@ def main():
      #print(">>>y_true", y_true)
         
      #metrics(y_true, y_pred)
+     
+def plot_precision_recall(precision_curve_plot, recall_curve_plot):
+    plt.plot(precision_curve_plot, recall_curve_plot)
+        
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.xlim([0.0,1.0])
+    plt.ylim([0.0,1.0])
+    plt.title('Precision Recall Curve')
