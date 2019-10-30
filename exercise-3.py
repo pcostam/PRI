@@ -133,7 +133,7 @@ class BM25:
         tuples = zip(test_vector.col, test_vector.data)
         print("test_vector col", test_vector.col)
         tuples_terms = sorted(tuples, key=lambda x: x[1], reverse=True)
-        sorted_terms = tuples_terms[0:10]
+        sorted_terms = tuples_terms[0:5]
         print("sorted_terms", sorted_terms)
         keyphrases = []
         for idx, score in sorted_terms:
@@ -165,7 +165,7 @@ def get_tagged(folder, t="word"):
     word_tag_pairs = list()
   
    
-    for f in files[:30]:
+    for f in files[:120]:
         doc = xml.dom.minidom.parse(f)
 
         # get a list of XML tags from the document and print each one
@@ -251,6 +251,44 @@ def size_sentences_words(sentences):
           size = len(sentence.getElementsByTagName("token"))
      return size
 
+
+def get_dataset(folder, t="word"):
+    path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\" + folder
+ 
+    files = []
+    docs = dict()
+    # r=root, d=directories, f = files
+    for r, d, f in os.walk(path):
+        for file in f:
+            if '.xml' in file:
+                files.append(os.path.join(r, file))
+                
+    for f in files[:120]:
+        text = str()
+        base_name=os.path.basename(f)
+        key = os.path.splitext(base_name)[0]
+        doc = xml.dom.minidom.parse(f)
+
+        # get a list of XML tags from the document and print each one
+        sentences = doc.getElementsByTagName("sentence")
+        text = ""
+        for sentence in sentences:
+                tokens = sentence.getElementsByTagName("token")
+                sentence_string = ""
+                for token in tokens:
+                    word = token.getElementsByTagName(t)[0].firstChild.data
+                   
+                        
+                    sentence_string = sentence_string + " " + word
+                #ended iterating tokens from sentence
+                text += sentence_string
+        #ended iterating sentences
+        docs[key] = text
+        
+    
+
+    return docs.values()
+
 #
 #Returns: list of tuples where each corresponds to (word, tag). Each word
 # is from train set
@@ -258,7 +296,7 @@ def main():
  
      true_labels = exercise2.json_references()
      print("BM25>>>>")
-     docs, test_set = exercise2.get_dataset("train",t="lemma", test_size=5)
+     docs = get_dataset("train",t="lemma")
      tagged_words = get_tagged("train", t="lemma")
      vocabulary = candidates(tagged_words)
      algorithm = BM25(docs, vocabulary)
