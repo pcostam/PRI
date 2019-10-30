@@ -25,6 +25,7 @@ class BM25:
     def get_tf_matrix(self, docs, vocabulary):     
         vectorizer = TfidfVectorizer(vocabulary = vocabulary,
                                      use_idf = False, 
+                                     norm=None,
                                      analyzer = 'word', 
                                      ngram_range=(1,3), 
                                      stop_words = 'english',
@@ -33,9 +34,9 @@ class BM25:
         tf_matrix = vectorizer.fit_transform(docs).toarray()   
         
         for idx in range(0, len(self.feature_names)):
-            if self.feature_names[idx] == "adaptive resource management":
-                print("first keyword", idx)
-                print("test", tf_matrix[0,idx])
+            if self.feature_names[idx] == "neighbor":
+                print("tf keyword", idx)
+                print("test", tf_matrix[118,idx])
            
         print(tf_matrix)        
         return tf_matrix
@@ -61,9 +62,21 @@ class BM25:
         binary_matrix = vectorizer.fit_transform(docs).toarray()
         self.feature_names = vectorizer.get_feature_names()
         for idx in range(0, len(self.feature_names)):
-            if self.feature_names[idx] == "adaptive resource management":
+            if self.feature_names[idx] == "neighbor collaborative filtering":
                 print("first keyword", idx)
-                print("test", binary_matrix[0,idx])
+                print("test", binary_matrix[118,idx])
+                print("test", np.sum(binary_matrix[:, idx]))
+            if self.feature_names[idx] == "collaborative filtering":
+                print("second keyword", idx)
+                print("test", binary_matrix[118,idx])
+                print("test", np.sum(binary_matrix[:, idx]))
+            if self.feature_names[idx] == "neighbor":
+                print("third keyword", idx)
+                print("test", binary_matrix[118,idx])
+                print("test", np.sum(binary_matrix[:, idx]))
+            if self.feature_names[idx] == "aggregation process":
+                print("third keyword", idx)
+                print("test", binary_matrix[118,idx])
                 print("test", np.sum(binary_matrix[:, idx]))
                 
      
@@ -113,14 +126,14 @@ class BM25:
                 nt = self.document_frequency(term_index)
                 tf = self.term_frequency(term_index, doc_index)
                 doc_length = self.document_length(doc_index)
-                tfidf = self.TFIDF(tf, doc_length, nt)
+                tfidf = self.TFIDF(tf, doc_length, nt) * len(self.feature_names[term_index].split())
                 self.tfidf_matrix[doc_index, term_index] = tfidf
      
     def get_top_5(self, test_vector):
         tuples = zip(test_vector.col, test_vector.data)
         print("test_vector col", test_vector.col)
         tuples_terms = sorted(tuples, key=lambda x: x[1], reverse=True)
-        sorted_terms = tuples_terms[0:5]
+        sorted_terms = tuples_terms[0:10]
         print("sorted_terms", sorted_terms)
         keyphrases = []
         for idx, score in sorted_terms:
@@ -192,20 +205,13 @@ def parse(tagged_words, n):
     for child in parsed_word_tag:
             if isinstance(child, Tree):               
                 if child.label() == 'KT':
-                    #group_words = []
                     size_child = len(child)
                     if size_child == n:
-                        #for num in range(size_child):
-                        #      group_words.append(child[num][0])
-                        #n_gram = " ".join(group_words)
                         return True
                 else:
                     return False
     return results
-                     
-  
-
-    
+                         
 def candidates(tagged_words):
     bigrams = list()
     trigrams = list()
@@ -257,7 +263,7 @@ def main():
      vocabulary = candidates(tagged_words)
      algorithm = BM25(docs, vocabulary)
      algorithm.update_matrix_tfidf()
-     keyphrases = algorithm.calc_prediction(0)
+     keyphrases = algorithm.calc_prediction(118)
      print("keyphrases", keyphrases)
      
      
