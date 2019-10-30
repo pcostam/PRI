@@ -29,8 +29,9 @@ def get_dataset(folder, t="word", test_size =5, stem_or_not_stem = "not stem"):
                 
     docs = dict()
     test_set = dict()
-    i = 0
     ps = PorterStemmer()
+    i = 0
+    file_counter = 0
   
     for f in files:
         i += 1
@@ -54,11 +55,14 @@ def get_dataset(folder, t="word", test_size =5, stem_or_not_stem = "not stem"):
                 #ended iterating tokens from sentence
                 text += sentence_string
         #ended iterating sentences
-        #text =  exercise1.preprocess(text)
-        #add dictionary. key is name of file.
-        docs[key] = text
         
-        test_set[key] = [text]
+        #add dictionary. key is name of file.
+        if(file_counter <= 43):
+            docs[key] = text
+        else:
+            test_set[key] = [text]
+
+        file_counter += 1
 
     return docs.values(), test_set
        
@@ -171,20 +175,23 @@ def main():
     
     #for i in range(5, 100, 5):
         
-        #print("INDEX : ", i )
+     #   print("INDEX : ", i )
     
     vectorizer_tfidf = exercise1.tf_idf_train(docs, 30)
     
     for key, doc in test_set.items():
-        #print(">>>>Testing document ", key)
+        print(">>>>Testing document ", key)
         testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
         
         y_true = true_labels[key]
         y_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
-        #print(">>>Predicted ", y_pred)
-        #print(">>>Known Relevant ", y_true)
+        print(">>>Predicted ", y_pred)
+        print(">>>Known Relevant ", y_true)
          
         precision, recall = metrics(y_true, y_pred)
+        if precision > 0.6:
+            print(">>>> é esta",key)
+            print(precision)
         precision_curve_plot.append(precision)
         recall_curve_plot.append(recall)
         
@@ -200,28 +207,40 @@ def main():
     
     plot_precision_recall(precision_curve_plot, recall_curve_plot)
     
-    #all_ap.clear()
-    #all_p5.clear()
-
-    #key = "C-76"
-    #doc = test_set[key]
+        #all_ap.clear()
+        #all_p5.clear()
         
-    #print(">>>>doc to be tested", key)
-    #testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
+    #TEST ONLY FOR ONE DOCUMENT:
+        #key = "C-76"
+        #doc = test_set[key]
         
-     #y_true = true_labels[key]
-     #y_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
+        #print(">>>>doc to be tested", key)
+        #testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
         
-     #print(">>>y_pred", y_pred)
-     #print(">>>y_true", y_true)
+        #y_true = true_labels[key]
+        #y_pred = exercise1.calc_prediction(testvec,vectorizer_tfidf)
         
-     #metrics(y_true, y_pred)
+        #print(">>>y_pred", y_pred)
+        #print(">>>y_true", y_true)
+        
+        #metrics(y_true, y_pred)
      
 def plot_precision_recall(precision_curve_plot, recall_curve_plot):
-    plt.plot(precision_curve_plot, recall_curve_plot)
-        
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.xlim([0.0,1.0])
-    plt.ylim([0.0,1.0])
-    plt.title('Precision Recall Curve')
+    precision_curve_plot.sort()
+    recall_curve_plot.sort(reverse = True)
+    i = len(recall_curve_plot)-2
+    precision_copy=precision_curve_plot.copy()
+
+    while(i >= 0):
+        if precision_curve_plot[i+1] > precision_curve_plot[i]:
+            precision_curve_plot[i] = precision_curve_plot[i+1]
+        i=i-1
+    
+    #fig, ax = plt.subplots()
+    for i in range(len(recall_curve_plot)-1):
+        plt.plot((recall_curve_plot[i],recall_curve_plot[i]),(precision_curve_plot[i],precision_curve_plot[i+1]),'k-',label='',color='red') #vertical
+        plt.plot((recall_curve_plot[i],recall_curve_plot[i+1]),(precision_curve_plot[i+1],precision_curve_plot[i+1]),'k-',label='',color='red') #horizontal
+    
+    plt.plot(recall_curve_plot, precision_copy,'k--',color='blue')
+    plt.xlabel("recall")
+    plt.ylabel("precision")
