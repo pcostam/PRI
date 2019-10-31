@@ -33,15 +33,15 @@ from six.moves import range
 from scipy.sparse import lil_matrix
 import xml.dom.minidom
 import os
-from nltk import word_tokenize
 import string
 from nltk.corpus import stopwords
 import re
 from nltk.util import ngrams
 import itertools
-from nltk import Tree, RegexpParser, pos_tag, word_tokenize
-
-PARAM_K1 = 1.5
+from nltk import Tree, RegexpParser, pos_tag
+import pickle
+exercise2 = __import__('exercise-2')
+PARAM_K1 = 1.2
 PARAM_B = 0.75
 EPSILON = 0.25
 
@@ -190,18 +190,28 @@ def is_valid_semantic(tagged_words, n):
                 else:
                     return False
                 
+def pickle_file():
+    docs = get_dataset("test", t="lemma")
+    with open("corpus.txt", "wb") as fp:   #Pickling
+        pickle.dump(docs, fp)
+        
+def unpickle_file():
+    with open("corpus.txt", "rb") as fp:   # Unpickling
+        docs = pickle.load(fp)
+    return docs
+
 def get_dataset(folder, t="word"):
-    path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\" + folder
+    path = os.path.dirname(os.path.realpath('__file__')) + "\\Inspec\\" + folder
  
     files = []
     docs = dict()
     # r=root, d=directories, f = files
     for r, d, f in os.walk(path):
-        for file in f[:30]:
+        for file in f[:100]:
             if '.xml' in file:
                 files.append(os.path.join(r, file))
            
-    for f in files[:30]:
+    for f in files:
         base_name=os.path.basename(f)
         key = os.path.splitext(base_name)[0]
         doc = xml.dom.minidom.parse(f)
@@ -240,12 +250,15 @@ def get_dataset(folder, t="word"):
 
  
 def main():
-     docs = get_dataset("train",t="lemma")
-     corpus = docs.values()
+     corpus = unpickle_file()
+     print("corpus", corpus)
+     true_labels = exercise2.json_references(stem_or_not_stem = "not stem") 
      print("BM25>>>")
-     bm25 = BM25(corpus)
+     bm25 = BM25(corpus.values())
      print("UPDATE>>>")
      bm25.get_scores()
-     keyphrases = bm25.calc_prediction(0)
-     print("keyphrases", keyphrases)
+     y_pred = bm25.calc_prediction(0)
+     print("keyphrases", y_pred)
+     y_true = true_labels['193']
+     exercise2.metrics(y_true, y_pred)
 
