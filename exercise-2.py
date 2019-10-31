@@ -61,7 +61,7 @@ def main():
 #intern lists has the test documents (strings) as elements
 #Notes: can't be "lemma" and "stem" at the same time
 def get_dataset(folder, t="word", stem_or_not_stem = "not stem"):
-    path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\" + folder
+    path = os.path.dirname(os.path.realpath('__file__')) + "\\Inspec\\" + folder
     ps = PorterStemmer()
     test_set = dict()
     files = list()
@@ -115,26 +115,27 @@ def get_dataset(folder, t="word", stem_or_not_stem = "not stem"):
 def json_references(stem_or_not_stem = 'not stem'):
     data = dict()
     
-    path = os.path.dirname(os.path.realpath('__file__')) + "\\SemEval-2010\\references"
+    path = os.path.dirname(os.path.realpath('__file__')) + "\\Inspec\\references"
     if stem_or_not_stem == 'not stem':
-        filename = os.path.join(path,"train.combined.json")
+        filename = os.path.join(path,"test.uncontr.json")
     elif stem_or_not_stem == 'stem':
-        filename = os.path.join(path,"train.combined.stem.json")
+        filename = os.path.join(path,"test.uncontr.stem.json")
         
     with open(filename) as f:    
         data = json.load(f)
         
         for key, value in data.items():
-            i = 0
-            aux_list = []
-            for gram in value:
-                size = len(gram[0].split(" "))
-                if(size==1 or size == 2 or size == 3):
-                    aux_list.append(gram[0])
-                    i += 1
-                    
-            value = aux_list
-            data[key] = value
+            if len(value) >= 5:
+                i = 0
+                aux_list = []
+                for gram in value:
+                    size = len(gram[0].split(" "))
+                    if(size==1 or size == 2 or size == 3):
+                        aux_list.append(gram[0])
+                        i += 1
+                        
+                value = aux_list
+                data[key] = value
             
     return data
 
