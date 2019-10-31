@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+"""
+Exercise 1
+"""
 from sklearn.feature_extraction.text import TfidfVectorizer 
 from sklearn.datasets import fetch_20newsgroups
 from scipy import sparse
@@ -19,12 +22,12 @@ def get_20_news_group(size):
     return docs.data[:size + 1], [doc_test.data[0]]
 
 #Tokenizes set train and test doc by sentence
-#calls: sentence_preprocess, tf_idf_train, tf_idf_test and calc_prediction
+#calls: tf_idf_train, tf_idf_test and calc_prediction
 #@input:train set and doc test
 #@return: set of keyphrases 
 def tf_idf(docs, test):
     #TRAIN
-    vectorizer_tfidf = tf_idf_train(docs, 2)   
+    vectorizer_tfidf = tf_idf_train(docs, 1.0)   
     
     #TEST
     test_vector = tf_idf_test(vectorizer_tfidf, test)
@@ -33,16 +36,17 @@ def tf_idf(docs, test):
     return keys
 
 #Creates vectorizer and fits it to the docs
-#@input:train set already pre-processed 
+#@input:train set, parameter (optional) removes the n most frequent words 
 #@return: vectorizer 
-def tf_idf_train(docs, maxdf):      
+def tf_idf_train(docs, maxdf = 1):      
     vectorizer_tfidf = TfidfVectorizer(use_idf = True, 
                                            analyzer = 'word', 
                                            ngram_range=(1,3), 
                                            stop_words = 'english',
                                            token_pattern=r"(?u)\b[a-zA-Z][a-zA-Z-]*[a-zA-Z]\b", 
                                            lowercase = True,
-                                           max_df =maxdf)
+                                           max_df =maxdf,
+                                           norm = 'l1')
         
     vectorizer_tfidf.fit_transform(docs)
                  
