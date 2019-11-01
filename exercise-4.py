@@ -9,12 +9,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression,SGDClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
+from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
+import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import math
 import random
 import itertools
+from sklearn.metrics import confusion_matrix
 
 exercise3 = __import__('exercise-3')
 exercise2 = __import__('exercise-2')
@@ -212,10 +215,32 @@ def get_keyphrases(y_pred, feature_names):
 
     return keyphrases
 
+def average_precision_score(y_true, y_pred):
+    nr_relevants = 0
+    i = 0
+    ap_at_sum = 0
+    print("y_pred", y_pred)
+  
+    for el in y_pred:
+        i += 1
+        print("y_pred", y_pred)
+        print("y_true", y_true)
+        
+        #is relevant
+        if el in y_true:
+            nr_relevants += 1
+            ap_at_sum += nr_relevants/i
+        
+    if(nr_relevants == 0):
+        return 0
+    
+    return ap_at_sum/nr_relevants
+
+
 def do_classifiers():
        clfs = dict()
      
-       clfs["KNN"] = KNeighborsClassifier(n_neighbors=5)
+       clfs["SVC"] = SVC(gamma='auto')
        clfs["Logistic Regression"] = LogisticRegression(random_state=0, class_weight='balanced', multi_class='ovr')
        clfs["SGD Classifier"] = SGDClassifier(max_iter=1000, tol=1e-3)
        return clfs
@@ -237,6 +262,7 @@ def main():
     #25% of documents are used to test
     test_size = 0.25
     size_docs = len(docs)
+    print("size_docs", size_docs)
     train_size = 1 - test_size
     index_train = math.floor(train_size * size_docs )
     
@@ -279,6 +305,8 @@ def main():
     print("len all feature", len(feature_names_all))
     print("len keyphrases true", len(y_test_all))
     print("len", len(files_to_test.keys()))
+    y_pred_all = dict()
+    all_ap = dict()
     for file_name, candidates in files_to_test.items():
         print("file_name>>>", file_name)
         X_test = np.array(candidates)
@@ -290,31 +318,69 @@ def main():
         
         keyphrases_true = get_keyphrases(y_test, feature_names)
         print("keyphrases true", keyphrases_true)
-      
+        relevant_true_keyphrases = true_labels[file_name]
         for name, clf in clfs.items():
             print("classifier_name>>>", name)
             y_pred = clf.predict(X_test)
-      
+            if name not in y_pred_all.keys():
+                    y_pred_all[name] = list(y_pred)
+            else:
+                for value in y_pred:
+                    y_pred_all[name].append(value)
             keyphrases = get_keyphrases(y_pred, feature_names)
             print("keyphrases", keyphrases)
             
-            count = 0
-            for keyphrase in keyphrases:
-                if keyphrase in keyphrases_true:
-                    count += 1
-            print("count", count)
-            y_score = list()
-            if(name == "KNN"):
-                y_score = clf.predict_proba(X_test)
-            else:
-                y_score = clf.decision_function(X_test)
+            y_score = clf.decision_function(X_test)
             idx_features = np.argsort(y_score)
-            top_5_keyphrases = list()
-            for idx in idx_features[-5:]:
-                top_5_keyphrases.append(feature_names[idx])
-            print("top_5_keyphrases", top_5_keyphrases)
-            print("keyphrases", keyphrases)
-       
-   
+            top_keyphrases = list()
+            
+            for idx in idx_features:
+                if feature_names[idx] not in top_keyphrases:
+                    top_keyphrases.append(feature_names[idx])
+                
+            top_5_keyphrases = top_keyphrases[-5:]
+            
+            if name not in all_ap.keys():
+                all_ap[name] = [average_precision_score(relevant_true_keyphrases, top_5_keyphrases)]
+            else:
+                all_ap[name].append(average_precision_score(relevant_true_keyphrases, top_5_keyphrases))
+                
+
+    for name in clfs.keys():
+        print("mean_average_precision for", name, np.sum(all_ap[name])/len(all_ap[name]))
+        print("name", name)
+        tn, fp, fn, tp = confusion_matrix(y_test_all, y_pred_all[name]).ravel()
+        print("tn fp fn tp", tn, fp, fn, tp)
+        cm = confusion_matrix(y_test_all, y_pred_all[name])
+        fig, ax = plt.subplots()
+        im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+        classes = ["Not Keyphrase", "Keyphrase"]
+        title = name
+        ax.figure.colorbar(im, ax=ax)
+        # We want to show all ticks...
+        ax.set(xticks=np.arange(cm.shape[1]),
+               yticks=np.arange(cm.shape[0]),
+               # ... and label them with the respective list entries
+               xticklabels=classes, yticklabels=classes,
+               title=title,
+               ylabel='True label',
+               xlabel='Predicted label')
+    
+        # Rotate the tick labels and set their alignment.
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                 rotation_mode="anchor")
+    
+        
+        # Loop over data dimensions and create text annotations.
+        fmt = '.2f' 
+        thresh = cm.max() / 2.
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(j, i, format(cm[i, j], fmt),
+                        ha="center", va="center",
+                        color="white" if cm[i, j] > thresh else "black")
+        fig.tight_layout()
+    
+        plt.show()
     
    
