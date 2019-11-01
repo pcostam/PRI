@@ -1,16 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Oct 30 12:43:00 2019
-
-@author: anama
+exercise 4
 """
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression,SGDClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.svm import LinearSVC
 from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
@@ -18,6 +13,13 @@ import math
 import random
 import itertools
 from sklearn.metrics import confusion_matrix
+import os
+import xml.dom.minidom
+from nltk.util import ngrams
+from nltk import Tree, RegexpParser, pos_tag
+import string
+from nltk.corpus import stopwords
+import re
 
 exercise3 = __import__('exercise-3')
 exercise2 = __import__('exercise-2')
@@ -135,6 +137,80 @@ def train(classifier, X, y):
 
     return classifier
 
+def is_valid_semantic(tagged_words, n):
+    grammar = r'KT: {(<JJ>* <NN.*>+ <IN>)? <JJ>* <NN.*>+}'
+    cp = RegexpParser(grammar)
+
+    parsed_word_tag = cp.parse(tagged_words)
+   
+    for child in parsed_word_tag:
+            if isinstance(child, Tree):
+                if child.label() == 'KT':
+                    size_child = len(child)
+                    if size_child == n:
+                        
+                        return True
+                else:
+                    return False
+                
+def is_valid(word):
+    remove = string.punctuation
+    pattern_ponctuation = r'[{}]'.format(remove) # create the pattern
+
+    stop_words = set(stopwords.words('english'))
+
+    if re.match(pattern_ponctuation, word) or re.match(r'[^\D]', word) or re.match(r'[\n]', word) or (word in stop_words):
+        return False
+    else:
+        return True
+    
+def get_dataset(folder, t="word"):
+    path = os.path.dirname(os.path.realpath('__file__')) + "\\Inspec\\" + folder
+ 
+    files = []
+    docs = dict()
+    # r=root, d=directories, f = files
+    for r, d, f in os.walk(path):
+        for file in f[:100]:
+            if '.xml' in file:
+                files.append(os.path.join(r, file))
+           
+    for f in files:
+        base_name=os.path.basename(f)
+        key = os.path.splitext(base_name)[0]
+        doc = xml.dom.minidom.parse(f)
+
+        # get a list of XML tags from the document and print each one
+        sentences = doc.getElementsByTagName("sentence")
+        sentence_string = []
+        for sentence in sentences:
+                tokens = sentence.getElementsByTagName("token")
+             
+                for token in tokens:
+                    word = token.getElementsByTagName(t)[0].firstChild.data
+                    word = word.lower()
+                    if(is_valid(word)):
+                        sentence_string.append(word)
+                #ended iterating tokens from sentence
+                
+        #ended iterating sentences
+        res = []
+       
+        unigram_it= ngrams(sentence_string, 1)
+        bigram_it  = ngrams(sentence_string, 2)
+        trigram_it = ngrams(sentence_string, 3)
+        
+        for tokens in itertools.chain(bigram_it, trigram_it, unigram_it):
+            tagged_word = pos_tag(tokens)
+            #print("tagged_word", tagged_word)
+            if(is_valid_semantic(tagged_word, len(tokens))):
+                res.append(" ".join(tokens))
+          
+                
+        docs[key] = res
+    
+    return docs
+
 
 def pickle_file():
     docs = exercise3.get_dataset("test", t="lemma")
@@ -234,8 +310,7 @@ def do_classifiers():
        clfs["SGD Classifier"] = SGDClassifier(max_iter=1000, tol=1e-3)
        return clfs
 def main():
-    docs = unpickle_file()
-    
+    docs = get_dataset("test")
     doc_not_tokenized = []
     vocab = []
     for tokens in docs.values():
@@ -271,6 +346,7 @@ def main():
   
  
     files_to_test = dict()
+    
     for line in X_test[:, 1:]:
         file_name = line[0]
         candidate = list(line[1:])
@@ -290,7 +366,7 @@ def main():
     #test classifiers
     idx_y_test_start = 0
     idx_y_test_stop = 0
- 
+  
     y_pred_all = dict()
     all_ap = dict()
     for file_name, candidates in files_to_test.items():
