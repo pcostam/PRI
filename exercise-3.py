@@ -39,9 +39,9 @@ import re
 from nltk.util import ngrams
 import itertools
 from nltk import Tree, RegexpParser, pos_tag
-import pickle
 exercise2 = __import__('exercise-2')
-PARAM_K1 = 1.2
+
+PARAM_K1 = 1.5
 PARAM_B = 0.75
 EPSILON = 0.25
 
@@ -143,15 +143,15 @@ class BM25(object):
             for term_index in range(0, self.no_terms):
                 tfidf = self.get_score(doc_index, term_index)
                 self.tfidf_matrix[doc_index, term_index] = tfidf
-        print("tfidf_matrix", self.tfidf_matrix)
+        #print("tfidf_matrix", self.tfidf_matrix)
         return self.tfidf_matrix
 
     def get_top_5(self, test_vector):
         tuples = zip(test_vector.col, test_vector.data)
-        print("test_vector col", test_vector.col)
+        #print("test_vector col", test_vector.col)
         tuples_terms = sorted(tuples, key=lambda x: x[1], reverse=True)
         sorted_terms = tuples_terms[0:10]
-        print("sorted_terms", sorted_terms)
+        #print("sorted_terms", sorted_terms)
         keyphrases = []
         for idx, score in sorted_terms:
             keyphrases.append(self.terms[idx])
@@ -190,16 +190,6 @@ def is_valid_semantic(tagged_words, n):
                 else:
                     return False
                 
-def pickle_file():
-    docs = get_dataset("test", t="lemma")
-    with open("corpus.txt", "wb") as fp:   #Pickling
-        pickle.dump(docs, fp)
-        
-def unpickle_file():
-    with open("corpus.txt", "rb") as fp:   # Unpickling
-        docs = pickle.load(fp)
-    return docs
-
 def get_dataset(folder, t="word"):
     path = os.path.dirname(os.path.realpath('__file__')) + "\\Inspec\\" + folder
  
@@ -207,7 +197,7 @@ def get_dataset(folder, t="word"):
     docs = dict()
     # r=root, d=directories, f = files
     for r, d, f in os.walk(path):
-        for file in f[:100]:
+        for file in f[:30]:
             if '.xml' in file:
                 files.append(os.path.join(r, file))
            
@@ -225,7 +215,6 @@ def get_dataset(folder, t="word"):
                 for token in tokens:
                     word = token.getElementsByTagName(t)[0].firstChild.data
                     word = word.lower()
-                    tagged_word = pos_tag(word)
                     if(is_valid(word)):
                         sentence_string.append(word)
                 #ended iterating tokens from sentence
@@ -239,7 +228,7 @@ def get_dataset(folder, t="word"):
         
         for tokens in itertools.chain(bigram_it, trigram_it, unigram_it):
             tagged_word = pos_tag(tokens)
-            print("tagged_word", tagged_word)
+            #print("tagged_word", tagged_word)
             if(is_valid_semantic(tagged_word, len(tokens))):
                 res.append(" ".join(tokens))
           
@@ -250,15 +239,31 @@ def get_dataset(folder, t="word"):
 
  
 def main():
-     corpus = unpickle_file()
-     print("corpus", corpus)
-     true_labels = exercise2.json_references(stem_or_not_stem = "not stem") 
+     doc_count = 0
+     all_ap = list()
+     all_p5 = list()
+     docs = get_dataset("test",t="lemma")
+     corpus = docs.values()
      print("BM25>>>")
-     bm25 = BM25(corpus.values())
+     bm25 = BM25(corpus)
      print("UPDATE>>>")
      bm25.get_scores()
-     y_pred = bm25.calc_prediction(0)
-     print("keyphrases", y_pred)
-     y_true = true_labels['193']
-     exercise2.metrics(y_true, y_pred)
+     doc_index = 0
+     true_labels = exercise2.json_references(stem_or_not_stem = "not stem")
+     for doc_name in docs.keys():
+         if doc_name in true_labels.keys():
+             if len(true_labels[doc_name]) >= 5:
+                 y_true = true_labels[doc_name]
+                 doc_count += 1
+                 y_pred = bm25.calc_prediction(doc_index)
+                 exercise2.metrics(y_true, y_pred)
+                 ap, p5 = exercise2.average_precision_score(y_true, y_pred)
+                 all_ap.append(ap)
+                 all_p5.append(p5)
+         doc_index +=1
+     mAP = exercise2.global_metrics(all_ap, doc_count, global_metric = 'mAP')
+     print(">>>Mean average precision ", mAP)
+    
+     mP5 = exercise2.global_metrics(all_p5, doc_count, global_metric = 'mP5')
+     print(">>>Mean precision@5 ", mP5)
 
