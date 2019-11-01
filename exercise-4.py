@@ -30,7 +30,6 @@ class candidate:
         self.length_candidate = length_candidate
         self.doc_size = doc_size
         self.bm25 = bm25
-        self.zone = zone
         self.term_frequency = term_frequency
         self.inverse_document_frequency = inverse_document_frequency
         self.tfidf = tfidf
@@ -53,9 +52,6 @@ class candidate:
     
     def get_bm25(self):
         return self.bm25
-    
-    def get_zone(self):
-        return self.zone
     
     def get_term_frequency(self):
         return self.term_frequency 
@@ -81,7 +77,7 @@ def tf_idf_tokens_fit(docs, vocab):
                             stop_words = 'english',
                             token_pattern=r"(?u)\b[a-zA-Z][a-zA-Z-]*[a-zA-Z]\b", 
                             lowercase = True,
-                            max_df = 3,
+                            max_df = 2,
                             norm = 'l2')  
     
     tfidf.fit_transform(docs)
@@ -102,10 +98,10 @@ def do_dataframe(candidates):
     tfidf = []
     idf = []
     tf = []
-    zones = []
     revs = []
     names = []
     doc_names = []
+    
     for candidate in candidates:
             doc_names.append(candidate.get_doc_name())
             names.append(candidate.get_name())
@@ -116,12 +112,11 @@ def do_dataframe(candidates):
             tfidf.append(candidate.get_tfidf())
             tf.append(candidate.get_term_frequency())
             idf.append(candidate.get_inverse_document_frequency())
-            zones.append(candidate.get_zone())
             revs.append(candidate.get_revelancy())
         
         
            
-    d = {'revelancy': revs, 'name': names, 'docs_name': doc_names,  'position': positions, 'length candidate': length_candidates, 'doc size': doc_sizes, 'bm25':bm25, 'tfidf': tfidf, 'term frequency': tf, 'inverse document frequency': idf, 'zone':  zones}
+    d = {'revelancy': revs, 'name': names, 'docs_name': doc_names,  'position': positions, 'length candidate': length_candidates, 'doc size': doc_sizes, 'bm25':bm25, 'tfidf': tfidf, 'term frequency': tf, 'inverse document frequency': idf}
     df = pd.DataFrame(data=d)
     return df
 
@@ -142,7 +137,7 @@ def train(classifier, X, y):
 
 
 def pickle_file():
-    docs = exercise3.get_dataset("train", t="lemma")
+    docs = exercise3.get_dataset("test", t="lemma")
     with open("corpus.txt", "wb") as fp:   #Pickling
         pickle.dump(docs, fp)
         
@@ -182,7 +177,7 @@ def do_candidates(docs, true_labels, vec, stop, start = 0, is_train = True):
         position = 0
         doc_name = key
       
-        string_not_tokenized = " ".join(tokens)
+        #string_not_tokenized = " ".join(tokens)
       
         
         for token in tokens:
@@ -191,13 +186,11 @@ def do_candidates(docs, true_labels, vec, stop, start = 0, is_train = True):
                 relevancy = 1
                 no_relevants += 1
            
-            vector = vec.transform([string_not_tokenized])
+            #vector = vec.transform([string_not_tokenized])
            
-
-            tfidf = get_tfidf_candidate(vector, position)
+            #tfidf = get_tfidf_candidate(vector, position)
           
-            
-            candidates.append(candidate(doc_name, token, relevancy, position, len(" ".split(token)), len(tokens), tfidf=tfidf))
+            candidates.append(candidate(doc_name, token, relevancy, position, len(" ".split(token)), len(tokens)))
             position += 1  
             
     if(is_train == True):
@@ -219,12 +212,9 @@ def average_precision_score(y_true, y_pred):
     nr_relevants = 0
     i = 0
     ap_at_sum = 0
-    print("y_pred", y_pred)
   
     for el in y_pred:
         i += 1
-        print("y_pred", y_pred)
-        print("y_true", y_true)
         
         #is relevant
         if el in y_true:
@@ -239,8 +229,7 @@ def average_precision_score(y_true, y_pred):
 
 def do_classifiers():
        clfs = dict()
-     
-       clfs["SVC"] = SVC(gamma='auto')
+       clfs["SVC"] = SVC(gamma=0.001, C=100., probability=True, class_weight='balanced')
        clfs["Logistic Regression"] = LogisticRegression(random_state=0, class_weight='balanced', multi_class='ovr')
        clfs["SGD Classifier"] = SGDClassifier(max_iter=1000, tol=1e-3)
        return clfs
@@ -262,7 +251,7 @@ def main():
     #25% of documents are used to test
     test_size = 0.25
     size_docs = len(docs)
-    print("size_docs", size_docs)
+    
     train_size = 1 - test_size
     index_train = math.floor(train_size * size_docs )
     
@@ -296,40 +285,31 @@ def main():
     
     #train classifiers
     for name, clf in clfs.items():
-            print("classifier_name>>>", name)
             clfs[name] = train(clf, X, y)
             
     #test classifiers
     idx_y_test_start = 0
     idx_y_test_stop = 0
-    print("len all feature", len(feature_names_all))
-    print("len keyphrases true", len(y_test_all))
-    print("len", len(files_to_test.keys()))
+ 
     y_pred_all = dict()
     all_ap = dict()
     for file_name, candidates in files_to_test.items():
-        print("file_name>>>", file_name)
         X_test = np.array(candidates)
         
         idx_y_test_stop += len(candidates)
-        y_test = y_test_all[idx_y_test_start:idx_y_test_stop]
+      
         feature_names = feature_names_all[idx_y_test_start:idx_y_test_stop]
         idx_y_test_start = idx_y_test_stop
         
-        keyphrases_true = get_keyphrases(y_test, feature_names)
-        print("keyphrases true", keyphrases_true)
         relevant_true_keyphrases = true_labels[file_name]
         for name, clf in clfs.items():
-            print("classifier_name>>>", name)
             y_pred = clf.predict(X_test)
             if name not in y_pred_all.keys():
                     y_pred_all[name] = list(y_pred)
             else:
                 for value in y_pred:
                     y_pred_all[name].append(value)
-            keyphrases = get_keyphrases(y_pred, feature_names)
-            print("keyphrases", keyphrases)
-            
+           
             y_score = clf.decision_function(X_test)
             idx_features = np.argsort(y_score)
             top_keyphrases = list()
