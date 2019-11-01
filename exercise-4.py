@@ -20,8 +20,9 @@ exercise3 = __import__('exercise-3')
 exercise2 = __import__('exercise-2')
 
 class candidate:
-    def __init__(self, name, revelancy, position, length_candidate, doc_size, bm25 = 0, tfidf=0, term_frequency=0, inverse_document_frequency=0, zone=0):
+    def __init__(self, doc_name, name, revelancy, position, length_candidate, doc_size, bm25 = 0, tfidf=0, term_frequency=0, inverse_document_frequency=0, zone=0):
         self.name = name
+        self.doc_name = doc_name
         self.position = position
         self.length_candidate = length_candidate
         self.doc_size = doc_size
@@ -31,6 +32,9 @@ class candidate:
         self.inverse_document_frequency = inverse_document_frequency
         self.tfidf = tfidf
         self.revelancy = revelancy
+    
+    def get_doc_name(self):
+        return self.doc_name
     
     def get_name(self):
         return self.name
@@ -98,7 +102,9 @@ def do_dataframe(candidates):
     zones = []
     revs = []
     names = []
+    doc_names = []
     for candidate in candidates:
+            doc_names.append(candidate.get_doc_name())
             names.append(candidate.get_name())
             positions.append(candidate.get_position())
             length_candidates.append(candidate.get_length_candidate())
@@ -112,7 +118,7 @@ def do_dataframe(candidates):
         
         
            
-    d = {'revelancy': revs, 'name': names, 'position': positions, 'length candidate': length_candidates, 'doc size': doc_sizes, 'bm25':bm25, 'tfidf': tfidf, 'term frequency': tf, 'inverse document frequency': idf, 'zone':  zones}
+    d = {'revelancy': revs, 'name': names, 'docs_name': doc_names,  'position': positions, 'length candidate': length_candidates, 'doc size': doc_sizes, 'bm25':bm25, 'tfidf': tfidf, 'term frequency': tf, 'inverse document frequency': idf, 'zone':  zones}
     df = pd.DataFrame(data=d)
     return df
 
@@ -120,11 +126,12 @@ def extract_target(df):
     return df['revelancy'].tolist()
 
 def extract_data(df):
+    #remove revelancy
     X = np.array(df.iloc[:,1:])
     return X
 
 def train(classifier, X, y):
-    X_train = X[:, 1:]
+    X_train = X[:, 2:]
     y_train = y
     classifier.fit(X_train, y_train)
 
@@ -170,7 +177,7 @@ def do_candidates(docs, true_labels, vec, stop, start = 0, is_train = True):
     no_relevants = 0
     for key, tokens in docs.items():
         position = 0
-       
+        doc_name = key
       
         string_not_tokenized = " ".join(tokens)
       
@@ -187,7 +194,7 @@ def do_candidates(docs, true_labels, vec, stop, start = 0, is_train = True):
             tfidf = get_tfidf_candidate(vector, position)
           
             
-            candidates.append(candidate(token, relevancy, position, len(" ".split(token)), len(tokens), tfidf=tfidf))
+            candidates.append(candidate(doc_name, token, relevancy, position, len(" ".split(token)), len(tokens), tfidf=tfidf))
             position += 1  
             
     if(is_train == True):
@@ -245,38 +252,69 @@ def main():
     X = extract_data(df_train)
     
     X_test = extract_data(df_test)
-    feature_names = X_test[:,0]
-    X_test = X_test[:, 1:]
-    y_test = extract_target(df_test)
-    print("y_test shape", len(y_test))
-    print("shape x_test", X_test.shape)
-    keyphrases_true = get_keyphrases(y_test, feature_names)
-    clfs = do_classifiers()
-    for name, clf in clfs.items():
-        clf = train(clf, X, y)
-        print("shape feature_names", feature_names.shape)
-        print("feature_names", len(feature_names))
-        y_pred = clf.predict(X_test)
+    feature_names_all = X_test[:,0]
   
-        keyphrases = get_keyphrases(y_pred, feature_names)
-        print("keyphrases", keyphrases)
-        count = 0
-        for keyphrase in keyphrases:
-            if keyphrase in keyphrases_true:
-                count += 1
-        print("count", count)
-        y_score = list()
-        if(name == "KNN"):
-            y_score = clf.predict_proba(X_test)
-        else:
-            y_score = clf.decision_function(X_test)
-        idx_features = np.argsort(y_score)
-        top_5_keyphrases = list()
-        for idx in idx_features[-5:]:
-            top_5_keyphrases.append(feature_names[idx])
-        print("top_5_keyphrases", top_5_keyphrases)
-        print("keyphrases", keyphrases)
-   
+ 
+    files_to_test = dict()
+    for line in X_test[:, 1:]:
+        file_name = line[0]
+        candidate = list(line[1:])
+        if file_name not in files_to_test.keys():    
+            files_to_test[file_name] = [candidate]
+        else:     
+            files_to_test[file_name].append(candidate)
+  
+    y_test_all = extract_target(df_test)
+ 
+    clfs = do_classifiers()
+    
+    #train classifiers
+    for name, clf in clfs.items():
+            print("classifier_name>>>", name)
+            clfs[name] = train(clf, X, y)
+            
+    #test classifiers
+    idx_y_test_start = 0
+    idx_y_test_stop = 0
+    print("len all feature", len(feature_names_all))
+    print("len keyphrases true", len(y_test_all))
+    print("len", len(files_to_test.keys()))
+    for file_name, candidates in files_to_test.items():
+        print("file_name>>>", file_name)
+        X_test = np.array(candidates)
+        
+        idx_y_test_stop += len(candidates)
+        y_test = y_test_all[idx_y_test_start:idx_y_test_stop]
+        feature_names = feature_names_all[idx_y_test_start:idx_y_test_stop]
+        idx_y_test_start = idx_y_test_stop
+        
+        keyphrases_true = get_keyphrases(y_test, feature_names)
+        print("keyphrases true", keyphrases_true)
+      
+        for name, clf in clfs.items():
+            print("classifier_name>>>", name)
+            y_pred = clf.predict(X_test)
+      
+            keyphrases = get_keyphrases(y_pred, feature_names)
+            print("keyphrases", keyphrases)
+            
+            count = 0
+            for keyphrase in keyphrases:
+                if keyphrase in keyphrases_true:
+                    count += 1
+            print("count", count)
+            y_score = list()
+            if(name == "KNN"):
+                y_score = clf.predict_proba(X_test)
+            else:
+                y_score = clf.decision_function(X_test)
+            idx_features = np.argsort(y_score)
+            top_5_keyphrases = list()
+            for idx in idx_features[-5:]:
+                top_5_keyphrases.append(feature_names[idx])
+            print("top_5_keyphrases", top_5_keyphrases)
+            print("keyphrases", keyphrases)
+       
    
     
    
