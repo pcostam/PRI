@@ -14,6 +14,7 @@ import numpy as np
 import pickle
 import math
 import random
+import itertools
 
 exercise3 = __import__('exercise-3')
 exercise2 = __import__('exercise-2')
@@ -123,16 +124,10 @@ def extract_data(df):
     return X
 
 def train(classifier, X, y):
-    #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=11)
-    #feature_names = X_test[:,0]
-    #print(feature_names)
-    #X_train = X_train[:,1:]
-    #X_test = X_test[:, 1:]
     X_train = X[:, 1:]
     y_train = y
     classifier.fit(X_train, y_train)
-    
-    #print("Accuracy: " + str(classifier.score(X_test, y_test)))
+
     return classifier
 
 
@@ -168,22 +163,12 @@ def balance_train_set(candidates, no_relevants):
     
     return candidates
    
+def do_candidates(docs, true_labels, vec, stop, start = 0, is_train = True):
+    candidates = list()
+    docs = dict(itertools.islice(docs.items(), start, stop)) 
     
-        
-def df_train_test(docs, true_labels,vec, test_size=0.25):
-    import itertools
-    size_docs = len(docs)
-    train_size = 1 - test_size
-    index_train = math.floor(train_size * size_docs )
-  
-    candidates_train = list()
-    candidates_test = list()
-    docs_train = dict(itertools.islice(docs.items(), index_train))
-    docs_test = dict(itertools.islice(docs.items(), index_train, len(docs)))
-   
-
     no_relevants = 0
-    for key, tokens in docs_train.items():
+    for key, tokens in docs.items():
         position = 0
        
       
@@ -202,24 +187,14 @@ def df_train_test(docs, true_labels,vec, test_size=0.25):
             tfidf = get_tfidf_candidate(vector, position)
           
             
-            candidates_train.append(candidate(token, relevancy, position, len(" ".split(token)), len(tokens), tfidf=tfidf))
-            position += 1    
-    
-    candidates_train = balance_train_set(candidates_train, no_relevants)
-    
-    for key, tokens in docs_test.items():
-        position = 0
-        for token in tokens:
-            relevancy = 0
-        
-            if token in true_labels[key]:
-                relevancy = 1
+            candidates.append(candidate(token, relevancy, position, len(" ".split(token)), len(tokens), tfidf=tfidf))
+            position += 1  
             
-            candidates_test.append(candidate(token, relevancy, position, len(" ".split(token)), len(tokens)))
-            position += 1    
-    
+    if(is_train == True):
+        candidates = balance_train_set(candidates, no_relevants)
         
-    return candidates_train, candidates_test
+    return candidates
+        
 def get_keyphrases(y_pred, feature_names):
     keyphrases = list()
     i = 0
@@ -229,7 +204,14 @@ def get_keyphrases(y_pred, feature_names):
             i += 1
 
     return keyphrases
-    
+
+def do_classifiers():
+       clfs = dict()
+     
+       clfs["KNN"] = KNeighborsClassifier(n_neighbors=5)
+       clfs["Logistic Regression"] = LogisticRegression(random_state=0, class_weight='balanced', multi_class='ovr')
+       clfs["SGD Classifier"] = SGDClassifier(max_iter=1000, tol=1e-3)
+       return clfs
 def main():
     docs = unpickle_file()
     
@@ -245,91 +227,56 @@ def main():
    
     true_labels = exercise2.json_references(stem_or_not_stem = "not stem")
     
-    candidates_train, candidates_test = df_train_test(docs, true_labels,vec, test_size=0.25)
-      
+    #25% of documents are used to test
+    test_size = 0.25
+    size_docs = len(docs)
+    train_size = 1 - test_size
+    index_train = math.floor(train_size * size_docs )
+    
+    #do candidates object
+    candidates_train = do_candidates(docs, true_labels, vec, stop = index_train)
+    candidates_test = do_candidates(docs, true_labels, vec, len(docs), start = index_train, is_train = False)
+    
+    #do separate dataframes for train set and test set
     df_train = do_dataframe(candidates_train)
     df_test = do_dataframe(candidates_test)
+    
     y = extract_target(df_train)
-   
     X = extract_data(df_train)
-
     
-    clf = KNeighborsClassifier(n_neighbors=5)
-    clf = train(clf, X, y)
-    
-     
     X_test = extract_data(df_test)
     feature_names = X_test[:,0]
-    print("shape feature_names", feature_names.shape)
-    print("feature_names", len(feature_names))
     X_test = X_test[:, 1:]
-    print("shape x_test", X_test.shape)
     y_test = extract_target(df_test)
     print("y_test shape", len(y_test))
-    print("knn")
+    print("shape x_test", X_test.shape)
     keyphrases_true = get_keyphrases(y_test, feature_names)
-    y_pred = clf.predict(X_test)
-    print(np.unique(y_pred))
-    print("y_pred", y_pred)
-    keyphrases = get_keyphrases(y_pred, feature_names)
-    print("keyphrases", keyphrases)
-    count = 0
-    for keyphrase in keyphrases:
-        if keyphrase in keyphrases_true:
-            count += 1
-    print("count", count)
-    y_score = clf.predict_proba(X_test) 
-    idx_features = np.argsort(y_score)
-    top_5_keyphrases = list()
-    for idx in idx_features[-5:]:
-        top_5_keyphrases.append(feature_names[idx])
-    print("top_5_keyphrases", top_5_keyphrases)
-    print("keyphrases", keyphrases)
-    print("logistic regression")
-    clf = LogisticRegression(random_state=0, class_weight='balanced', multi_class='ovr')
-    clf = train(clf, X, y)
-    print("size y_pred", len(y_test))
-    y_pred = clf.predict(X_test)
-    y_score = clf.decision_function(X_test)
-    idx_features = np.argsort(y_score)
-    top_5_keyphrases = list()
-    for idx in idx_features[-5:]:
-        top_5_keyphrases.append(feature_names[idx])
-    print("top_5_keyphrases", top_5_keyphrases)
-    print("size y_pred", len(y_pred))
-    keyphrases = get_keyphrases(y_pred, feature_names)
-    
-    count = 0
-    for keyphrase in keyphrases:
-        if keyphrase in keyphrases_true:
-            count += 1
-   
-    print("count candidates", count)
-    count = 0
-    print("len keyphrases true", len(list(set(keyphrases_true))))
-    print("len keyphrases", len(list(set(keyphrases))))
-    keyphrases = list(set(keyphrases))
-    keyphrases_true = list(set(keyphrases_true))
-    for keyphrase in keyphrases:
-        if keyphrase in keyphrases_true:
-            count += 1
-    print("count true positive", count)
-    
-    print("SGD classifier")
-    clf = SGDClassifier(max_iter=1000, tol=1e-3)
-    clf = train(clf, X, y)
-    y_pred = clf.predict(X_test)
-    keyphrases = get_keyphrases(y_pred, feature_names)
-    y_score = clf.decision_function(X_test)
-    idx_features = np.argsort(y_score)
-    top_5_keyphrases = list()
-    for idx in idx_features[-5:]:
-        top_5_keyphrases.append(feature_names[idx])
-    print("top_5_keyphrases", top_5_keyphrases)
-    for keyphrase in keyphrases:
-        if keyphrase in keyphrases_true:
-            count += 1
-    print("count true positive", count)
+    clfs = do_classifiers()
+    for name, clf in clfs.items():
+        clf = train(clf, X, y)
+        print("shape feature_names", feature_names.shape)
+        print("feature_names", len(feature_names))
+        y_pred = clf.predict(X_test)
   
+        keyphrases = get_keyphrases(y_pred, feature_names)
+        print("keyphrases", keyphrases)
+        count = 0
+        for keyphrase in keyphrases:
+            if keyphrase in keyphrases_true:
+                count += 1
+        print("count", count)
+        y_score = list()
+        if(name == "KNN"):
+            y_score = clf.predict_proba(X_test)
+        else:
+            y_score = clf.decision_function(X_test)
+        idx_features = np.argsort(y_score)
+        top_5_keyphrases = list()
+        for idx in idx_features[-5:]:
+            top_5_keyphrases.append(feature_names[idx])
+        print("top_5_keyphrases", top_5_keyphrases)
+        print("keyphrases", keyphrases)
+   
+   
     
    
