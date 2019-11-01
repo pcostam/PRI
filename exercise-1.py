@@ -27,7 +27,7 @@ def get_20_news_group(size):
 #@return: set of keyphrases 
 def tf_idf(docs, test):
     #TRAIN
-    vectorizer_tfidf = tf_idf_train(docs, 1.0)   
+    vectorizer_tfidf = tf_idf_train(docs)   
     
     #TEST
     test_vector = tf_idf_test(vectorizer_tfidf, test)
@@ -38,14 +38,15 @@ def tf_idf(docs, test):
 #Creates vectorizer and fits it to the docs
 #@input:train set, parameter (optional) removes the n most frequent words 
 #@return: vectorizer 
-def tf_idf_train(docs, maxdf = 1):      
+def tf_idf_train(docs, maxdf = 1, mindf = 1):      
     vectorizer_tfidf = TfidfVectorizer(use_idf = True, 
                                            analyzer = 'word', 
                                            ngram_range=(1,3), 
                                            stop_words = 'english',
                                            token_pattern=r"(?u)\b[a-zA-Z][a-zA-Z-]*[a-zA-Z]\b", 
                                            lowercase = True,
-                                           max_df =maxdf,
+                                           max_df = maxdf,
+                                           min_df = mindf,
                                            norm = 'l1')
         
     vectorizer_tfidf.fit_transform(docs)

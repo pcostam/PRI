@@ -16,43 +16,52 @@ def main():
     all_p5 = list()
     precision_curve_plot = list()
     recall_curve_plot = list()
+    doc_count = 0
     
-    docs, test_set = get_dataset("train", t="word", stem_or_not_stem = "stem")
-    
-    true_labels = json_references(stem_or_not_stem = "stem")
+    docs, test_set = get_dataset("test", t="word", stem_or_not_stem = "not stem")
+    true_labels = json_references(stem_or_not_stem = "not stem")
     precisions = np.array(precisions)
     
-    #for i in range(5, 100, 5):   
-     #print("INDEX : ", i )
+    #for i in range(1, 100, 1):   
+        #print("MIN INDEX : ", i )
+    #for j in range (3, 20, 1):
+     #   print("MAX INDEX : ", j )
+        #MAX INDEX :  9
+        #>>>Mean average precision  0.16658163265306122
+        #>>>Mean precision@5  0.05994897959183673
     
-    vectorizer_tfidf = exercise1.tf_idf_train(docs, 10)
+    vectorizer_tfidf = exercise1.tf_idf_train(docs,9, 1)
     
     for key, doc in test_set.items():
-        print(">>>>Testing document ", key)
+        #print(">>>>Testing document ", key)
         testvec = exercise1.tf_idf_test(vectorizer_tfidf, doc)
         
         y_true = true_labels[key]
+        
         y_pred = exercise1.calc_prediction(testvec, vectorizer_tfidf)
-        print(">>>Predicted ", y_pred)
-        print(">>>Known Relevant ", y_true)
-         
-        precision, recall = metrics(y_true, y_pred)
-        precision_curve_plot.append(precision)
-        recall_curve_plot.append(recall)
+
+        #print(">>>Predicted ", y_pred)
+        #print(">>>Known Relevant ", y_true)
         
-        ap, p5 = average_precision_score(y_true, y_pred)
-        all_ap.append(ap)
-        all_p5.append(p5)
-        
-    mAP = global_metrics(all_ap, len(test_set.keys()), global_metric = 'mAP')
+        if len(y_true) >= 5:
+            precision, recall = metrics(y_true, y_pred)
+            precision_curve_plot.append(precision)
+            recall_curve_plot.append(recall)
+            
+            ap, p5 = average_precision_score(y_true, y_pred)
+            all_ap.append(ap)
+            all_p5.append(p5)
+            doc_count += 1
+            
+    mAP = global_metrics(all_ap, doc_count, global_metric = 'mAP')
     print(">>>Mean average precision ", mAP)
     
-    mP5 = global_metrics(all_p5, len(test_set.keys()), global_metric = 'mP5')
+    mP5 = global_metrics(all_p5, doc_count, global_metric = 'mP5')
     print(">>>Mean precision@5 ", mP5)
+
+    #plot_precision_recall(precision_curve_plot, recall_curve_plot)
     
-    plot_precision_recall(precision_curve_plot, recall_curve_plot)
-    
-        #all_ap.clear()
+       # all_ap.clear()
         #all_p5.clear()
 
 #Process XML file. Preprocesses text
@@ -98,7 +107,7 @@ def get_dataset(folder, t="word", stem_or_not_stem = "not stem"):
                 text += sentence_string
         
         #add dictionary. key is name of file.
-        if(file_counter <= 43):
+        if(file_counter <= 375):
             docs[key] = text
         else:
             test_set[key] = [text]
@@ -113,7 +122,7 @@ def get_dataset(folder, t="word", stem_or_not_stem = "not stem"):
 #Output: dictionary with n-grams where n < 4.
 #Notes: Key is filename; value is a list containing lists of keyphrases. 
 def json_references(stem_or_not_stem = 'not stem'):
-    data = dict()
+    data = dict()    
     
     path = os.path.dirname(os.path.realpath('__file__')) + "\\Inspec\\references"
     if stem_or_not_stem == 'not stem':
@@ -122,29 +131,26 @@ def json_references(stem_or_not_stem = 'not stem'):
         filename = os.path.join(path,"test.uncontr.stem.json")
         
     with open(filename) as f:    
-        data = json.load(f)
+        docs = json.load(f)
         
-        for key, value in data.items():
-            if len(value) >= 5:
-                i = 0
-                aux_list = []
-                for gram in value:
-                    size = len(gram[0].split(" "))
-                    if(size==1 or size == 2 or size == 3):
-                        aux_list.append(gram[0])
-                        i += 1
-                        
-                value = aux_list
-                data[key] = value
-            
+        for key, value in docs.items():
+            aux_list = []
+            for gram in value:
+                size = len(gram[0].split(" "))
+                if(size==1 or size == 2 or size == 3):
+                    aux_list.append(gram[0])
+            value = aux_list
+            data[key] = value
+
     return data
 
 #Input: Real grams of the document, Predicted grams of the document
-#Output: , Interpolated (?) precision@5 of a document 
-def average_precision_score(y_true, y_pred):
+#Output: , Interpolated precision@5 of a document 
+def average_precision_score(y_true, y_pred): 
     nr_relevants = 0
     i = 0
     ap_at_sum = 0
+    precision_at_5 = 0
     
     for el in y_pred:
         i += 1
@@ -174,9 +180,6 @@ def global_metrics(ap_or_p5_lst, nr_queries, global_metric):
     elif global_metric == 'mP5':
         sum_all_p5 = np.sum(ap_or_p5_lst)
         return sum_all_p5/nr_queries
-    
-    else:
-        return ">>>>WRONG GLOBAL METRIC<<<<"
 
 #Prints precision, recall and f1 score per individual document    
 #Input: Real grams of the document, Predicted grams of the document
@@ -200,9 +203,7 @@ def metrics(y_true, y_pred):
     if precision + recall != 0:
         f1_scores = 2 * (precision * recall) / (precision + recall)
         print(">>> f1 score"   , f1_scores)
-    else:
-        print(">>>>WRONG METRIC<<<<")
-    
+        
     return precision, recall
          
 def plot_precision_recall(precision_curve_plot, recall_curve_plot):
