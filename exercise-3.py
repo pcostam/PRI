@@ -141,7 +141,7 @@ class BM25(object):
     def get_scores(self):
         for doc_index in range(0, self.corpus_size):
             for term_index in range(0, self.no_terms):
-                tfidf = self.get_score(doc_index, term_index)
+                tfidf = self.get_score(doc_index, term_index)  #* len(" ".split(self.terms[term_index]))
                 self.tfidf_matrix[doc_index, term_index] = tfidf
         #print("tfidf_matrix", self.tfidf_matrix)
         return self.tfidf_matrix
