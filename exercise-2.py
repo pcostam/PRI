@@ -14,8 +14,9 @@ def main():
     precisions = list()
     all_ap = list()
     all_p5 = list()
-    precision_curve_plot = list()
-    recall_curve_plot = list()
+    all_precision = list()
+    all_recall = list()
+    all_f1_scores = list()
     doc_count = 0
     
     docs, test_set = get_dataset("test", t="word", stem_or_not_stem = "not stem")
@@ -44,9 +45,10 @@ def main():
         #print(">>>Known Relevant ", y_true)
         
         if len(y_true) >= 5:
-            precision, recall = metrics(y_true, y_pred)
-            precision_curve_plot.append(precision)
-            recall_curve_plot.append(recall)
+            precision, recall, f1_scores = metrics(y_true, y_pred)
+            all_precision.append(precision)
+            all_recall.append(recall)
+            all_f1_scores.append(f1_scores)
             
             ap, p5 = average_precision_score(y_true, y_pred)
             all_ap.append(ap)
@@ -58,7 +60,18 @@ def main():
     
     mP5 = global_metrics(all_p5, doc_count, global_metric = 'mP5')
     print(">>>Mean precision@5 ", mP5)
+    
+    mean_precision = np.sum(all_precision)/doc_count
+    mean_recall = np.sum(all_recall)/doc_count
+    mean_f1_score = np.sum(all_f1_scores)/doc_count
+    
+    print(">>> Mean precision", mean_precision)
+    print(">>> Mean recall ", mean_recall)
+    print(">>> Mean f1 score", mean_f1_score)
 
+#Mean precision 0.05714285714285715
+#Mean recall  0.033822182782609345
+#Mean f1 score 0.041524041143263836
     #plot_precision_recall(precision_curve_plot, recall_curve_plot)
     
        # all_ap.clear()
@@ -166,7 +179,7 @@ def average_precision_score(y_true, y_pred):
     if nr_relevants == 0:
         return 0, precision_at_5
     else:
-        return ap_at_sum/nr_relevants, precision_at_5
+        return ap_at_sum/min(len(y_true), 5), precision_at_5
 
 #Input: Numpy array of all average precision scores, Number of documents,
 #Token selects between calculation of "mAP" or "mP5"
@@ -203,8 +216,10 @@ def metrics(y_true, y_pred):
     if precision + recall != 0:
         f1_scores = 2 * (precision * recall) / (precision + recall)
         print(">>> f1 score"   , f1_scores)
+    else:
+        f1_scores = 0.0
         
-    return precision, recall
+    return precision, recall, f1_scores
          
 def plot_precision_recall(precision_curve_plot, recall_curve_plot):
     precision_curve_plot.sort()

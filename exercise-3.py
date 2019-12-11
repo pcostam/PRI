@@ -111,20 +111,15 @@ class BM25(object):
         
         for document in corpus:
             inv_doc_freq = {}
-            negative_idfs = []
-            idf_sum = 0
+         
             for word in document:
                 for word, freq in iteritems(nd):
                     inv_doc_freq[word] = math.log(self.corpus_size - freq + 0.5) - math.log(freq + 0.5)
-                    idf_sum += inv_doc_freq[word]
-                    if inv_doc_freq[word] < 0:
-                        negative_idfs.append(word)
-                
-                self.average_idf = float(idf_sum) / len(inv_doc_freq)
-                for word, freq in iteritems(nd):
-                    for word in negative_idfs:
-                        inv_doc_freq[word] = EPSILON * self.average_idf
+                    if(inv_doc_freq[word] < 0):
+                        inv_doc_freq[word] = EPSILON
             self.idf.append(inv_doc_freq)
+                
+        
         self.tfidf_matrix = lil_matrix((self.corpus_size, self.no_terms), dtype=float)
 
     def get_score(self, doc_index, index_term):

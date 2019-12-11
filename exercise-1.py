@@ -5,12 +5,27 @@ Exercise 1
 from sklearn.feature_extraction.text import TfidfVectorizer 
 from sklearn.datasets import fetch_20newsgroups
 from scipy import sparse
-
-def main():
+import sys
+def main(fIn='', in_disk=False):
     docs,test = get_20_news_group(18000)
+    if in_disk:
+        test = [open_file(fIn)]
     keys = tf_idf(docs,test)
     
     return keys
+
+def open_file(fIn):
+    try:
+        with open(fIn, 'r') as f:
+          file_content = f.read()
+          print("read file " + fIn)
+          return file_content
+        if not file_content:
+          print("no data in file " + fIn)
+    except IOError as e:
+       print("I/O error({0}): {1}".format(e.errno, e.strerror))
+    except: #handle other exceptions such as attribute errors
+       print("Unexpected error:", sys.exc_info()[0])
 
 #loads train set and test doc
 #@input:size disered for the docs set
